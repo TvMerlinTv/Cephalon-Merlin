@@ -91,7 +91,7 @@ Drittanbieter-Tool ist garantiert bann-sicher. Lies im Zweifel die Nutzungsbedin
 <details>
 <summary><b>Wo liegen meine Daten?</b></summary>
 
-Alles bleibt auf deinem PC unter `%APPDATA%\tennodeck` (Knopf „Datenordner öffnen“ unter
+Alles bleibt auf deinem PC unter `%APPDATA%\Cephalon Merlin` (Knopf „Datenordner öffnen“ unter
 Hilfe / Info). Löschen setzt Cephalon Merlin zurück.
 </details>
 
