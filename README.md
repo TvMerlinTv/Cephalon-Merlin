@@ -1,116 +1,112 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="Cephalon Merlin – Warframe-Begleiter" width="100%">
+  <img src="assets/banner.svg" alt="Cephalon Merlin – Warframe companion" width="100%">
 </p>
 
 <p align="center">
-  <a href="https://github.com/TvMerlinTv/Cephalon-Merlin/releases/latest"><img alt="Neueste Version" src="https://img.shields.io/github/v/release/TvMerlinTv/Cephalon-Merlin?label=Version&color=8b6dff&style=flat-square"></a>
+  <a href="https://github.com/TvMerlinTv/Cephalon-Merlin/releases/latest"><img alt="Latest version" src="https://img.shields.io/github/v/release/TvMerlinTv/Cephalon-Merlin?label=version&color=8b6dff&style=flat-square"></a>
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0f1219?style=flat-square&logo=windows">
-  <img alt="Portable" src="https://img.shields.io/badge/ohne%20Installation-portable%20.exe-1e4d36?style=flat-square">
+  <img alt="Portable" src="https://img.shields.io/badge/no%20install-portable%20.exe-1e4d36?style=flat-square">
 </p>
 
 <p align="center">
-  <a href="https://github.com/TvMerlinTv/Cephalon-Merlin/releases/latest/download/Cephalon.Merlin.exe"><b>⬇&nbsp; Cephalon Merlin herunterladen</b></a>
+  <a href="https://github.com/TvMerlinTv/Cephalon-Merlin/releases/latest/download/Cephalon.Merlin.exe"><b>⬇&nbsp; Download Cephalon Merlin</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/TvMerlinTv/Cephalon-Merlin/releases">Alle Versionen</a>
+  <a href="https://github.com/TvMerlinTv/Cephalon-Merlin/releases">All versions</a>
 </p>
 
 ---
 
-**Cephalon Merlin** ist ein kostenloser Begleiter für [Warframe](https://www.warframe.com) auf dem PC.
-Ein Klick liest dein Inventar aus dem laufenden Spiel – danach siehst du, was du noch meistern musst,
-welche Builds die Community spielt,
-welche Relikte sich lohnen, was deine Items auf warframe.market wert sind und wann der nächste
-Zyklus wechselt. Während du spielst, blendet ein Overlay nach Spalten-Missionen die Belohnungen samt
-Platin- und Ducat-Wert ein.
+**Cephalon Merlin** is a free companion app for [Warframe](https://www.warframe.com) on PC.
+One click reads your inventory from the running game – then you see what you still need to master,
+which builds the community plays, which relics are worth opening, what your items sell for on
+warframe.market and when the next cycle changes. While you play, an overlay shows the rewards after
+fissure missions together with their platinum and ducat value.
 
-## ✨ Funktionen
+## ✨ Features
 
-| Bereich | Was er kann |
-|---|---|
-| 🔨 **Foundry** | Alle Waffen, Frames und Begleiter mit ihren Bauteilen – was du hast, was fehlt, mit Filtern. |
-| ⬆️ **Mastery-Helfer** | Was du noch meistern musst – mit Fahrplan (zuerst, was du schon fast hast), To-Do-Liste und den Relikten, die die fehlenden Teile droppen. |
-| 📦 **Inventar** | Deine handelbaren Items mit aktuellen Marktpreisen (WTS / WTB). |
-| 🔥 **Relikt-Planer** | Deine Relikte, ihr erwarteter Platin- und Ducat-Wert und was sich zu öffnen lohnt. |
-| 🛠️ **Builds** | Die beliebtesten Builds von overframe.gg mit kompletter Mod-Belegung, Guide und Marktpreisen. Favoriten merken und Builds per Checkliste fertigstellen. |
-| 🎲 **Rivens** | Alle Rivens mit Werten bei Rang 8, Würfelglück, Kuva-Kosten und Marktpreisen. |
-| 🏪 **Warframe Market** | Preise für Sets, Einzelteile und Mods – auch getrennt nach Rang 0 und Max-Rang. |
-| 🤝 **Handel** | Übrige Prime-Teile: was du für Platin verkaufst und was du für Baro Ki'Teer in Ducats tauschst. |
-| 📈 **Statistiken** | Verlauf von Platin, Credits, Endo, Ducats, Kuva und mehr – plus ein Log aller Spalten-Belohnungen. |
-| ⏱️ **Timer** | Tag/Nacht-Zyklen, Void-Spalten, Void-Stürme und Baro Ki'Teer – live, mit Windows-Benachrichtigungen. |
-| 🎯 **Ingame-Overlay** | Zeigt nach einer Spalten-Mission die vier Belohnungen mit Wert und gibt in der Relikt-Auswahl Empfehlungen. |
-| 🔁 **Auto-Sync** | Liest dein Inventar auf Wunsch nach jeder Mission oder alle paar Minuten automatisch neu ein. |
-| 🔄 **Selbst-Update** | Neue Versionen erscheinen oben in der Titelleiste – ein Klick, und meist werden nur ein paar hundert KB geladen. |
+| | Section | What it does |
+|:-:|---|---|
+| <img src="assets/icons/foundry.svg" width="20"> | **Foundry** | All frames, weapons and companions with their components – what you have and what's missing. |
+| <img src="assets/icons/mastery.svg" width="20"> | **Mastery Helper** | What you still need to master, with a to-do list and the relics that drop the missing parts. |
+| <img src="assets/icons/inventory.svg" width="20"> | **Inventory** | Your tradeable items with their platinum and ducat value. |
+| <img src="assets/icons/relics.svg" width="20"> | **Relic Planner** | Which of your relics are worth opening. |
+| <img src="assets/icons/builds.svg" width="20"> | **Builds** | Popular builds from overframe.gg with mods and guide. |
+| <img src="assets/icons/rivens.svg" width="20"> | **Rivens** | Your rivens with stats, disposition and market prices. |
+| <img src="assets/icons/market.svg" width="20"> | **Warframe Market** | Current prices and offers from warframe.market. |
+| <img src="assets/icons/trade.svg" width="20"> | **Trading** | What to sell for platinum and what to trade to Baro for ducats. |
+| <img src="assets/icons/stats.svg" width="20"> | **Statistics** | History of your account values and a log of your fissure rewards. |
+| <img src="assets/icons/timer.svg" width="20"> | **Timers** | World cycles, void fissures and Baro Ki'Teer – live, with optional notifications. |
+| <img src="assets/icons/overlay.svg" width="20"> | **In-game overlay** | Shows fissure rewards and their value right inside the game. |
 
-Die Oberfläche gibt es auf **Deutsch** und **Englisch**.
+The app is available in **English** and **German**.
 
-## 🚀 Loslegen
+## 🚀 Getting started
 
-1. **[Cephalon Merlin.exe herunterladen](https://github.com/TvMerlinTv/Cephalon-Merlin/releases/latest/download/Cephalon.Merlin.exe)** und z. B. auf den Desktop legen – keine Installation nötig.
-2. Warframe starten und einloggen.
-3. In Cephalon Merlin oben links auf **„Mit Spiel synchronisieren“** klicken.
-4. Für das Overlay Warframe auf **„Randloses Fenster“** stellen (Optionen → Anzeige).
+1. **[Download Cephalon Merlin.exe](https://github.com/TvMerlinTv/Cephalon-Merlin/releases/latest/download/Cephalon.Merlin.exe)** and put it anywhere, e.g. on your desktop – no installation needed.
+2. Start Warframe and log in.
+3. In Cephalon Merlin, click **“Sync with game”** in the top left.
+4. For the overlay, set Warframe to **“Borderless Fullscreen”** (Options → Display).
 
 > [!NOTE]
-> Die .exe ist nicht signiert, daher kann Windows SmartScreen beim ersten Start warnen:
-> **„Weitere Informationen“ → „Trotzdem ausführen“**.
+> The .exe is not code-signed, so Windows SmartScreen may warn you on first launch:
+> click **“More info” → “Run anyway”**.
 
-## ❓ Häufige Fragen
+## ❓ FAQ
 
 <details>
-<summary><b>Der Sync mit dem Spiel klappt nicht</b></summary>
+<summary><b>Syncing with the game doesn't work</b></summary>
 
-Warframe muss laufen und du musst eingeloggt sein. Hilft das nicht, geh einmal in einen
-Ladebildschirm (z. B. Mission starten oder ins Dojo) und synchronisiere erneut. Läuft Warframe als
-Administrator, muss Cephalon Merlin das auch.
+Warframe has to be running and you have to be logged in. If it still fails, enter a loading screen
+once (e.g. start a mission or go to the dojo) and sync again. If Warframe runs as administrator,
+Cephalon Merlin has to as well.
 </details>
 
 <details>
-<summary><b>Das Overlay erscheint nicht im Spiel</b></summary>
+<summary><b>The overlay doesn't show up in the game</b></summary>
 
-Stell Warframe auf „Randloses Fenster“. Über echtem Vollbild kann Windows kein Fenster zeigen.
-Prüfe außerdem unter Einstellungen → Overlays, ob das Overlay eingeschaltet ist.
+Set Warframe to “Borderless Fullscreen”. Windows can't draw windows on top of exclusive fullscreen.
+Also check Settings → Overlays to make sure the overlay is turned on.
 </details>
 
 <details>
-<summary><b>Wie bekomme ich Updates?</b></summary>
+<summary><b>How do I get updates?</b></summary>
 
-Automatisch: Cephalon Merlin schaut beim Start und danach alle paar Stunden hier nach einer neuen
-Version – oder sofort über Hilfe / Info → „Nach Updates suchen“. Gibt es eine, erscheint oben
-„Update x.y.z“. Ein Klick auf „Jetzt aktualisieren“ lädt sie und startet die App neu. Meist wird dabei
-nur der geänderte App-Code geladen (ein paar hundert KB), nur selten die ganze .exe. Deine
-Einstellungen und Daten bleiben erhalten.
+Automatically: Cephalon Merlin checks for a new version on start and every few hours – or right
+away via Help / Info → “Check for updates”. When one is available, “Update x.y.z” appears in the
+title bar; one click on “Update now” downloads it and restarts the app. Your settings and data stay
+as they are.
 </details>
 
 <details>
-<summary><b>Was liest Cephalon Merlin aus dem Spiel?</b></summary>
+<summary><b>What does Cephalon Merlin read from the game?</b></summary>
 
-Cephalon Merlin liest nur und verändert nichts am Spiel. Für dein Inventar wird der Sitzungs-Token
-aus dem laufenden Spiel gelesen und damit einmal dein Inventar von Digital Extremes geladen – dieselbe
-Anfrage, die das Spiel selbst stellt. Der Token wird weder gespeichert noch angezeigt oder
-weitergegeben. Das Overlay liest den Bildschirm per Texterkennung und klickt nie etwas im Spiel.
+Cephalon Merlin only reads and never changes anything in the game. To get your inventory it reads
+the session token from the running game and uses it to load your inventory from Digital Extremes
+once – the same request the game makes itself. The token is never saved, shown or shared. The
+overlay reads the screen with text recognition and never clicks anything in the game.
 
-Das Auslesen des Spiels ist nicht offiziell von Digital Extremes freigegeben, und kein
-Drittanbieter-Tool ist garantiert bann-sicher. Lies im Zweifel die Nutzungsbedingungen von DE.
+Reading game data is not officially approved by Digital Extremes, and no third-party tool is
+guaranteed to be ban-safe. If in doubt, check DE's terms of service.
 </details>
 
 <details>
-<summary><b>Wo liegen meine Daten?</b></summary>
+<summary><b>Where is my data stored?</b></summary>
 
-Alles bleibt auf deinem PC unter `%APPDATA%\Cephalon Merlin` (Knopf „Datenordner öffnen“ unter
-Hilfe / Info). Löschen setzt Cephalon Merlin zurück.
+Everything stays on your PC in `%APPDATA%\Cephalon Merlin` (button “Open data folder” under
+Help / Info). Deleting that folder resets Cephalon Merlin.
 </details>
 
-## 🙏 Datenquellen
+## 🙏 Data sources
 
-[warframe.market](https://warframe.market) (Preise, Riven-Auktionen) ·
-[overframe.gg](https://overframe.gg) (Builds) ·
-[warframestat.us](https://hub.warframestat.us) (Weltstatus, Sammelpreise) ·
-[WFCD/warframe-items](https://github.com/WFCD/warframe-items) (Item-Datenbank, Drops) ·
+[warframe.market](https://warframe.market) (prices, riven auctions) ·
+[overframe.gg](https://overframe.gg) (builds) ·
+[warframestat.us](https://hub.warframestat.us) (world state, set prices) ·
+[WFCD/warframe-items](https://github.com/WFCD/warframe-items) (item database, drops) ·
 [WFCD/warframe-worldstate-data](https://github.com/WFCD/warframe-worldstate-data) ·
-[warframe-public-export-plus](https://github.com/calamity-inc/warframe-public-export-plus) (Riven-Daten) ·
+[warframe-public-export-plus](https://github.com/calamity-inc/warframe-public-export-plus) (riven data) ·
 [Warframe Wiki](https://wiki.warframe.com)
 
 ---
 
-<sub>Cephalon Merlin ist ein Fan-Projekt und nicht mit Digital Extremes verbunden. Warframe und alle
-zugehörigen Namen und Bilder gehören Digital Extremes Ltd.</sub>
+<sub>Cephalon Merlin is a fan project and is not affiliated with Digital Extremes. Warframe and all
+related names and images are property of Digital Extremes Ltd.</sub>
