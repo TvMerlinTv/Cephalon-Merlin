@@ -18,6 +18,7 @@
 
 **Cephalon Merlin** ist ein kostenloser Begleiter für [Warframe](https://www.warframe.com) auf dem PC.
 Ein Klick liest dein Inventar aus dem laufenden Spiel – danach siehst du, was du noch meistern musst,
+welche Builds die Community spielt,
 welche Relikte sich lohnen, was deine Items auf warframe.market wert sind und wann der nächste
 Zyklus wechselt. Während du spielst, blendet ein Overlay nach Spalten-Missionen die Belohnungen samt
 Platin- und Ducat-Wert ein.
@@ -27,16 +28,18 @@ Platin- und Ducat-Wert ein.
 | Bereich | Was er kann |
 |---|---|
 | 🔨 **Foundry** | Alle Waffen, Frames und Begleiter mit ihren Bauteilen – was du hast, was fehlt, mit Filtern. |
-| ⬆️ **Mastery-Helfer** | Was du noch meistern musst, mit To-Do-Liste und den Relikten, die die fehlenden Teile droppen. |
+| ⬆️ **Mastery-Helfer** | Was du noch meistern musst – mit Fahrplan (zuerst, was du schon fast hast), To-Do-Liste und den Relikten, die die fehlenden Teile droppen. |
 | 📦 **Inventar** | Deine handelbaren Items mit aktuellen Marktpreisen (WTS / WTB). |
 | 🔥 **Relikt-Planer** | Deine Relikte, ihr erwarteter Platin- und Ducat-Wert und was sich zu öffnen lohnt. |
+| 🛠️ **Builds** | Die beliebtesten Builds von overframe.gg mit kompletter Mod-Belegung, Guide und Marktpreisen. Favoriten merken und Builds per Checkliste fertigstellen. |
 | 🎲 **Rivens** | Alle Rivens mit Werten bei Rang 8, Würfelglück, Kuva-Kosten und Marktpreisen. |
-| 🏪 **Warframe Market** | Preise für Sets und Einzelteile direkt von warframe.market. |
+| 🏪 **Warframe Market** | Preise für Sets, Einzelteile und Mods – auch getrennt nach Rang 0 und Max-Rang. |
 | 🤝 **Handel** | Übrige Prime-Teile: was du für Platin verkaufst und was du für Baro Ki'Teer in Ducats tauschst. |
-| 📈 **Statistiken** | Verlauf von Platin, Credits, Endo, Ducats, Kuva und mehr. |
+| 📈 **Statistiken** | Verlauf von Platin, Credits, Endo, Ducats, Kuva und mehr – plus ein Log aller Spalten-Belohnungen. |
 | ⏱️ **Timer** | Tag/Nacht-Zyklen, Void-Spalten, Void-Stürme und Baro Ki'Teer – live, mit Windows-Benachrichtigungen. |
 | 🎯 **Ingame-Overlay** | Zeigt nach einer Spalten-Mission die vier Belohnungen mit Wert und gibt in der Relikt-Auswahl Empfehlungen. |
-| 🔄 **Selbst-Update** | Neue Versionen erscheinen oben in der Titelleiste – ein Klick, fertig. |
+| 🔁 **Auto-Sync** | Liest dein Inventar auf Wunsch nach jeder Mission oder alle paar Minuten automatisch neu ein. |
+| 🔄 **Selbst-Update** | Neue Versionen erscheinen oben in der Titelleiste – ein Klick, und meist werden nur ein paar hundert KB geladen. |
 
 Die Oberfläche gibt es auf **Deutsch** und **Englisch**.
 
@@ -72,8 +75,10 @@ Prüfe außerdem unter Einstellungen → Overlays, ob das Overlay eingeschaltet 
 <summary><b>Wie bekomme ich Updates?</b></summary>
 
 Automatisch: Cephalon Merlin schaut beim Start und danach alle paar Stunden hier nach einer neuen
-Version. Gibt es eine, erscheint oben „Update x.y.z“ – ein Klick lädt sie herunter, ersetzt die .exe
-und startet neu. Deine Einstellungen und Daten bleiben erhalten.
+Version – oder sofort über Hilfe / Info → „Nach Updates suchen“. Gibt es eine, erscheint oben
+„Update x.y.z“. Ein Klick auf „Jetzt aktualisieren“ lädt sie und startet die App neu. Meist wird dabei
+nur der geänderte App-Code geladen (ein paar hundert KB), nur selten die ganze .exe. Deine
+Einstellungen und Daten bleiben erhalten.
 </details>
 
 <details>
@@ -98,6 +103,7 @@ Hilfe / Info). Löschen setzt Cephalon Merlin zurück.
 ## 🙏 Datenquellen
 
 [warframe.market](https://warframe.market) (Preise, Riven-Auktionen) ·
+[overframe.gg](https://overframe.gg) (Builds) ·
 [warframestat.us](https://hub.warframestat.us) (Weltstatus, Sammelpreise) ·
 [WFCD/warframe-items](https://github.com/WFCD/warframe-items) (Item-Datenbank, Drops) ·
 [WFCD/warframe-worldstate-data](https://github.com/WFCD/warframe-worldstate-data) ·
