@@ -1,0 +1,58 @@
+{
+  "name": "tennodeck",
+  "productName": "Cephalon Merlin",
+  "version": "0.1.5",
+  "private": true,
+  "type": "module",
+  "description": "Warframe Companion (Inventar, Timer, warframe.market) â€“ Electron + React",
+  "author": "TvMerlinTv",
+  "main": "electron/boot.cjs",
+  "updateRepo": "TvMerlinTv/cephalon-merlin",
+  "scripts": {
+    "dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:5173 && electron . --dev\"",
+    "web": "vite",
+    "build": "vite build",
+    "start": "vite build && electron .",
+    "dist": "vite build && electron-builder --win portable",
+    "preview": "vite build && node build/preview.cjs",
+    "release": "node build/release.cjs"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.3",
+    "concurrently": "^9.0.1",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.10",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "de.tvmerlintv.tennodeck",
+    "productName": "Cephalon Merlin",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "electron/*.ps1"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": "portable"
+    },
+    "portable": {
+      "artifactName": "Cephalon Merlin.exe"
+    }
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "esbuild@0.21.5": true
+  }
+}

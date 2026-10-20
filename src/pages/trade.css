@@ -1,0 +1,132 @@
+/* ---------- Handel (Ducats für Baro, Verkaufs-Helfer) ---------- */
+.trd-baro {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 6px 12px;
+  color: var(--gold);
+  font-weight: 500;
+}
+.trd-hint {
+  margin: -4px 0 10px;
+}
+.trd-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.trd-table-wrap {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.trd-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.trd-table th,
+.trd-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.trd-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-2);
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+.trd-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.trd-table tbody tr:hover {
+  background: var(--card);
+}
+.trd-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.trd-table .num svg {
+  vertical-align: -2px;
+}
+.trd-table .chk {
+  width: 32px;
+}
+.trd-good td:nth-child(5) {
+  color: var(--ok);
+  font-weight: 600;
+}
+.trd-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.trd-name img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.trd-tag {
+  background: var(--accent);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.trd-sell tbody tr {
+  cursor: pointer;
+}
+.trd-sell tbody tr.sel {
+  background: var(--card-hover);
+}
+.trd-price {
+  width: 64px;
+  text-align: right;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+.trd-keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+.trd-keep input {
+  width: 52px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+.trd-msgs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.trd-msgs p {
+  margin: 0;
+}
+.trd-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 6px 6px 12px;
+}
+.trd-msg code {
+  flex: 1;
+  word-break: break-word;
+  font-size: 13px;
+}
+.trd-sellbar {
+  align-items: center;
+}

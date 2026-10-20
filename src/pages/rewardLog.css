@@ -1,0 +1,112 @@
+/* Belohnungs-Log (Statistik-Seite, Reiter „Spalten-Belohnungen“) */
+.rl {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.rl-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.rl-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+.rl-val {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.rl-runs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rl-run {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+.rl-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.rl-time {
+  font-weight: 600;
+}
+.rl-del {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+  display: inline-flex;
+}
+.rl-del:hover {
+  color: var(--err);
+}
+.rl-items {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.rl-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.rl-item:hover {
+  border-color: var(--muted);
+}
+.rl-item.chosen {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.rl-item.assumed {
+  border-style: dashed;
+  border-color: var(--accent);
+}
+.rl-name {
+  font-weight: 500;
+}
+.rl-vals {
+  display: flex;
+  gap: 10px;
+  color: var(--muted);
+}
+.rl-item em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--accent);
+}
+.rl-item.assumed em {
+  color: var(--muted);
+}
+.rl-more {
+  margin-top: 8px;
+}
+/* Kontowerte als Unterreiter (die Seite selbst liefert .page) */
+.st-sub {
+  display: flex;
+  flex-direction: column;
+}

@@ -6,12 +6,15 @@
   <a href="https://github.com/TvMerlinTv/Cephalon-Merlin/releases/latest"><img alt="Latest version" src="https://img.shields.io/github/v/release/TvMerlinTv/Cephalon-Merlin?label=version&color=8b6dff&style=flat-square"></a>
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0f1219?style=flat-square&logo=windows">
   <img alt="Portable" src="https://img.shields.io/badge/no%20install-portable%20.exe-1e4d36?style=flat-square">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-8d96ad?style=flat-square"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/TvMerlinTv/Cephalon-Merlin/releases/latest/download/Cephalon.Merlin.exe"><b>⬇&nbsp; Download Cephalon Merlin</b></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/TvMerlinTv/Cephalon-Merlin/releases">All versions</a>
+  &nbsp;·&nbsp;
+  <a href="#build-from-source">Source code</a>
 </p>
 
 ---
@@ -50,6 +53,35 @@ The app is available in **English** and **German**.
 > [!NOTE]
 > The .exe is not code-signed, so Windows SmartScreen may warn you on first launch:
 > click **“More info” → “Run anyway”**.
+
+<a id="build-from-source"></a>
+
+## 🛠️ Build from source
+
+Cephalon Merlin is open source (MIT). It is an Electron 33 + React 18 + Vite 5 app.
+You need [Node.js](https://nodejs.org) 20 or newer and Windows (the game sync and the overlay use Windows APIs).
+
+```bash
+git clone https://github.com/TvMerlinTv/Cephalon-Merlin.git
+cd Cephalon-Merlin
+npm install
+npm run dev      # Electron app with hot reload
+npm run web      # UI only, in the browser (http://127.0.0.1:5173)
+npm run dist     # portable .exe in release/
+```
+
+Optional: `node build/make-overframe-mods.cjs` generates `src/lib/overframeMods.json`, the mapping of
+Overframe mod IDs that the Builds page needs to show mod loadouts. It is read from overframe.gg's website
+and therefore not part of this repository; without it the app works, builds just show no mods.
+
+| Folder | Content |
+| --- | --- |
+| `electron/` | Main process: game sync, overlay + OCR, world state, auto-sync, updater, settings |
+| `src/` | React UI (pages, components, `lib/` for data and helpers) |
+| `build/` | Scripts: icon, riven/Overframe data, preview, release |
+| `github/` | Source of this page |
+
+Pull requests and issues are welcome.
 
 ## ❓ FAQ
 
@@ -108,5 +140,5 @@ Help / Info). Deleting that folder resets Cephalon Merlin.
 
 ---
 
-<sub>Cephalon Merlin is a fan project and is not affiliated with Digital Extremes. Warframe and all
+<sub>Released under the [MIT License](LICENSE). Cephalon Merlin is a fan project and is not affiliated with Digital Extremes. Warframe and all
 related names and images are property of Digital Extremes Ltd.</sub>

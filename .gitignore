@@ -1,0 +1,7 @@
+node_modules/
+dist/
+release/
+*.timestamp-*.mjs
+# aus overframe.gg ausgelesen – mit `node build/make-overframe-mods.cjs` selbst erzeugen
+src/lib/overframeMods.json
+.claude/
