@@ -28,7 +28,7 @@ fissure missions together with their platinum and ducat value.
 |:-:|---|---|
 | <img src="assets/icons/foundry.svg" width="20"> | **Foundry** | Every frame, weapon and companion with its components – see at a glance what you own, what's missing and what's tradeable. |
 | <img src="assets/icons/mastery.svg" width="20"> | **Mastery Helper** | A **roadmap to your next Mastery Rank**: how much XP you still need, which items get you there fastest (starting with what you already own) and when it's time for your rank test. Plus a to-do list that shows which relics drop the parts you're missing. |
-| <img src="assets/icons/inventory.svg" width="20"> | **Inventory** | All your tradeable items – prime parts, mods, relics, arcanes – with live platinum prices, ducat value and the total worth of your account. |
+| <img src="assets/icons/inventory.svg" width="20"> | **Inventory** | All your tradeable items – prime parts, mods, relics, arcanes – with live platinum prices, ducat value and the total worth of your account. Click an item to sell it: copy a ready-made WTS message or open it on warframe.market. |
 | <img src="assets/icons/relics.svg" width="20"> | **Relic Planner** | Expected platinum and ducats per opening for every relic you own, by refinement and squad size – so you know which ones are worth cracking. |
 | <img src="assets/icons/builds.svg" width="20"> | **Builds** | The most popular builds from overframe.gg with full mod layout, guide and mod prices. Save favorites and finish builds with a checklist. |
 | <img src="assets/icons/rivens.svg" width="20"> | **Rivens** | Your rivens with stats at rank 8, disposition, roll luck, kuva spent and what similar rivens sell for. |
