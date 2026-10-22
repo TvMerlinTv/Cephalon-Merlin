@@ -29,16 +29,16 @@ fissure missions together with their platinum and ducat value.
 
 | | Section | What it does |
 |:-:|---|---|
-| <img src="assets/icons/foundry.svg" width="20"> | **Foundry** | Every frame, weapon and companion with its components – see at a glance what you own, what's missing and what's tradeable. |
+| <img src="assets/icons/foundry.svg" width="20"> | **Foundry** | Every frame, weapon and companion with its components – see at a glance what you own, what's missing and what's tradeable. Shows what's currently building with a countdown and notifies you when it's done. |
 | <img src="assets/icons/mastery.svg" width="20"> | **Mastery Helper** | A **roadmap to your next Mastery Rank**: how much XP you still need, which items get you there fastest (starting with what you already own) and when it's time for your rank test. Plus a to-do list that shows which relics drop the parts you're missing. |
 | <img src="assets/icons/inventory.svg" width="20"> | **Inventory** | All your tradeable items – prime parts, mods, relics, arcanes – with live platinum prices, ducat value and the total worth of your account. Click an item to sell it: copy a ready-made WTS message or open it on warframe.market. |
 | <img src="assets/icons/relics.svg" width="20"> | **Relic Planner** | Expected platinum and ducats per opening for every relic you own, by refinement and squad size – so you know which ones are worth cracking. |
 | <img src="assets/icons/builds.svg" width="20"> | **Builds** | The most popular builds from overframe.gg with full mod layout, guide and mod prices. Save favorites and finish builds with a checklist. |
 | <img src="assets/icons/rivens.svg" width="20"> | **Rivens** | Your rivens with stats at rank 8, disposition, roll luck, kuva spent and what similar rivens sell for. |
 | <img src="assets/icons/market.svg" width="20"> | **Warframe Market** | Live buy and sell offers from players who are online right now, split by mod rank – copy the whisper message with one click. |
-| <img src="assets/icons/trade.svg" width="20"> | **Trading** | Finds your spare prime parts and duplicates: what's worth selling for platinum (with ready-made chat messages) and what to trade to Baro Ki'Teer for ducats. |
+| <img src="assets/icons/trade.svg" width="20"> | **Trading** | Finds your spare prime parts and duplicates: what's worth selling for platinum (with ready-made chat messages) and what to trade to Baro Ki'Teer for ducats. Set **price alerts** and get notified when someone sells an item below your price – or wants to buy it above it. |
 | <img src="assets/icons/stats.svg" width="20"> | **Statistics** | Charts of your platinum, credits, endo, ducats, kuva and more over time, plus a log of every fissure reward with average platinum per run. |
-| <img src="assets/icons/timer.svg" width="20"> | **Timers** | Day/night cycles, void fissures, void storms and Baro Ki'Teer – live, with optional Windows notifications. |
+| <img src="assets/icons/timer.svg" width="20"> | **Timers** | Day/night cycles, void fissures, void storms and Baro Ki'Teer – live, with optional Windows notifications. Plus today's sortie, the weekly archon hunt and nightwave challenges to tick off. |
 | <img src="assets/icons/overlay.svg" width="20"> | **In-game overlay** | After a fissure mission it shows the four rewards with platinum and ducat value right inside the game, and gives recommendations in the relic selection. |
 
 The app is available in **English** and **German**.
