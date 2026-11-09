@@ -1,13 +1,15 @@
-import { useState } from 'react';
-import { ExternalLink, Youtube, Copy } from 'lucide-react';
-import { openExternal } from '../lib/api.js';
-import { useT } from '../lib/i18n.js';
+import { createSignal } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
+import { ExternalLink, Youtube, Copy } from 'lucide-solid';
+import { openExternal } from '../lib/ipc.js';
+import { copyToClipboard } from '../lib/gamedb.js';
+import { t } from '../lib/i18n.js';
 
 // Kleiner, sicherer Markdown-Renderer für Build-Guides von overframe.gg.
-// Baut nur React-Elemente (kein innerHTML): HTML im Text erscheint als Text,
+// Baut nur DOM-Elemente (kein innerHTML): HTML im Text erscheint als Text,
 // Links öffnen nur über openExternal (Main-Prozess erlaubt nur bekannte Hosts).
 
-// Hosts, die openExternal im Main-Prozess öffnet (electron/main.cjs EXTERNAL_HOSTS)
+// Hosts, die der Rust-Teil öffnet (src-tauri/src/lib.rs EXTERNAL_HOSTS)
 const OPENABLE = new Set(['overframe.gg', 'www.youtube.com', 'wiki.warframe.com', 'warframe.market', 'github.com', 'www.warframe.com']);
 
 /** Wohin führt ein Link? { kind: 'build' | 'open' | 'copy', url, id? } */
@@ -34,40 +36,40 @@ export function linkTarget(href) {
 
 const youtubeUrl = (id) => `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`;
 
-function Link({ href, children, onOpenBuild }) {
-  const t = useT();
-  const [copied, setCopied] = useState(false);
-  const target = linkTarget(href);
+function Link(props) {
+  const [copied, setCopied] = createSignal(false);
+  const target = linkTarget(props.href);
+  const children = props.children;
+  const onOpenBuild = props.onOpenBuild;
   if (!target) return <span>{children}</span>;
   if (target.kind === 'copy') {
     // Fremde Seiten öffnet die App nicht – Link stattdessen kopieren
     const copy = () => {
-      if (window.wf?.copyText) window.wf.copyText(target.url);
-      else navigator.clipboard?.writeText(target.url).catch(() => {});
+      copyToClipboard(target.url).catch(() => {});
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     };
     return (
-      <button className="md-link md-link-copy" onClick={copy} title={`${t('Externer Link – klicken zum Kopieren')}\n${target.url}`}>
+      <button class="md-link md-link-copy" onClick={copy} title={`${t('Externer Link – klicken zum Kopieren')}\n${target.url}`}>
         {children}
         <Copy size={11} />
-        {copied && <small className="md-copied">{t('Kopiert')}</small>}
+        {copied() && <small class="md-copied">{t('Kopiert')}</small>}
       </button>
     );
   }
   const open = () => (target.kind === 'build' && onOpenBuild ? onOpenBuild(target.id) : openExternal(target.url));
   return (
-    <button className="md-link" onClick={open} title={target.url}>
+    <button class="md-link" onClick={open} title={target.url}>
       {children}
       {target.kind === 'open' && <ExternalLink size={11} />}
     </button>
   );
 }
 
-function YoutubeLink({ id }) {
-  const t = useT();
+function YoutubeLink(props) {
+  const id = props.id;
   return (
-    <button className="md-link md-youtube" onClick={() => openExternal(youtubeUrl(id))} title={youtubeUrl(id)}>
+    <button class="md-link md-youtube" onClick={() => openExternal(youtubeUrl(id))} title={youtubeUrl(id)}>
       <Youtube size={15} /> {t('Video auf YouTube ansehen')}
     </button>
   );
@@ -104,24 +106,24 @@ function inline(text, ctx, keyBase = 'i') {
     }
     if (m.index > last) out.push(text.slice(last, m.index));
     last = re.lastIndex;
-    if (m[1] != null) out.push(<code key={key()}>{m[1]}</code>);
+    if (m[1] != null) out.push(<code>{m[1]}</code>);
     else if (m[3] != null) {
       const target = linkTarget(m[3]);
-      if (target) out.push(<img key={key()} className="md-img" src={target.url} alt={m[2]} loading="lazy" referrerPolicy="no-referrer" />);
-    } else if (m[4] != null) out.push(<YoutubeLink key={key()} id={m[4]} />);
-    else if (m[5] != null) out.push(<span key={key()} className="muted">{m[5].trim()}</span>);
+      if (target) out.push(<img class="md-img" src={target.url} alt={m[2]} loading="lazy" referrerpolicy="no-referrer" />);
+    } else if (m[4] != null) out.push(<YoutubeLink id={m[4]} />);
+    else if (m[5] != null) out.push(<span class="muted">{m[5].trim()}</span>);
     else if (m[6] != null)
       out.push(
-        <Link key={key()} href={m[7]} onOpenBuild={ctx.onOpenBuild}>
+        <Link href={m[7]} onOpenBuild={ctx.onOpenBuild}>
           {inline(m[6], ctx, key())}
         </Link>,
       );
-    else if (m[8] != null || m[9] != null) out.push(<b key={key()}>{inline(m[8] ?? m[9], ctx, key())}</b>);
-    else if (m[10] != null) out.push(<s key={key()}>{inline(m[10], ctx, key())}</s>);
-    else if (m[11] != null || m[12] != null) out.push(<i key={key()}>{inline(m[11] ?? m[12], ctx, key())}</i>);
+    else if (m[8] != null || m[9] != null) out.push(<b>{inline(m[8] ?? m[9], ctx, key())}</b>);
+    else if (m[10] != null) out.push(<s>{inline(m[10], ctx, key())}</s>);
+    else if (m[11] != null || m[12] != null) out.push(<i>{inline(m[11] ?? m[12], ctx, key())}</i>);
     else if (m[13] != null)
       out.push(
-        <Link key={key()} href={m[13]} onOpenBuild={ctx.onOpenBuild}>
+        <Link href={m[13]} onOpenBuild={ctx.onOpenBuild}>
           {m[13].replace(/^https?:\/\/(www\.)?/, '')}
         </Link>,
       );
@@ -132,7 +134,7 @@ function inline(text, ctx, keyBase = 'i') {
 
 // Zeilen eines Absatzes mit Zeilenumbruch verbinden
 function lines(list, ctx, keyBase) {
-  return list.flatMap((l, i) => (i ? [<br key={`${keyBase}-br${i}`} />, ...inline(l, ctx, `${keyBase}-${i}`)] : inline(l, ctx, `${keyBase}-${i}`)));
+  return list.flatMap((l, i) => (i ? [<br />, ...inline(l, ctx, `${keyBase}-${i}`)] : inline(l, ctx, `${keyBase}-${i}`)));
 }
 
 // ---------- Blöcke ----------
@@ -166,7 +168,7 @@ function blocks(src, ctx, keyBase = 'b') {
       while (i < ls.length && !ls[i].trim().startsWith(fence)) body.push(ls[i++]);
       i++;
       out.push(
-        <pre key={key()}>
+        <pre>
           <code>{body.join('\n')}</code>
         </pre>,
       );
@@ -174,20 +176,20 @@ function blocks(src, ctx, keyBase = 'b') {
     }
     let m = RE.heading.exec(line);
     if (m) {
-      const H = `h${Math.min(6, m[1].length + 2)}`; // # -> h3, damit es unter den Seitentitel passt
-      out.push(<H key={key()}>{inline(m[2], ctx, key())}</H>);
+      // # -> h3, damit es unter den Seitentitel passt
+      out.push(<Dynamic component={`h${Math.min(6, m[1].length + 2)}`}>{inline(m[2], ctx, key())}</Dynamic>);
       i++;
       continue;
     }
     if (RE.hr.test(line)) {
-      out.push(<hr key={key()} />);
+      out.push(<hr />);
       i++;
       continue;
     }
     if (RE.quote.test(line)) {
       const body = [];
       while (i < ls.length && RE.quote.test(ls[i])) body.push(RE.quote.exec(ls[i++])[1]);
-      out.push(<blockquote key={key()}>{blocks(body.join('\n'), ctx, key())}</blockquote>);
+      out.push(<blockquote>{blocks(body.join('\n'), ctx, key())}</blockquote>);
       continue;
     }
     if (RE.tableRow.test(line) && RE.tableSep.test(ls[i + 1] ?? '')) {
@@ -196,20 +198,20 @@ function blocks(src, ctx, keyBase = 'b') {
       const rows = [];
       while (i < ls.length && RE.tableRow.test(ls[i])) rows.push(cells(ls[i++]));
       out.push(
-        <div className="md-table" key={key()}>
+        <div class="md-table">
           <table>
             <thead>
               <tr>
                 {head.map((c, j) => (
-                  <th key={j}>{inline(c, ctx, `${keyBase}-th${j}`)}</th>
+                  <th>{inline(c, ctx, `${keyBase}-th${j}`)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((r, ri) => (
-                <tr key={ri}>
+                <tr>
                   {r.map((c, j) => (
-                    <td key={j}>{inline(c, ctx, `${keyBase}-td${ri}-${j}`)}</td>
+                    <td>{inline(c, ctx, `${keyBase}-td${ri}-${j}`)}</td>
                   ))}
                 </tr>
               ))}
@@ -234,13 +236,12 @@ function blocks(src, ctx, keyBase = 'b') {
           i++; // Leerzeile zwischen Punkten
         } else break;
       }
-      const L = ordered ? 'ol' : 'ul';
       out.push(
-        <L key={key()}>
+        <Dynamic component={ordered ? 'ol' : 'ul'}>
           {items.map((it, j) => (
-            <li key={j}>{lines(it, ctx, `${keyBase}-li${k}-${j}`)}</li>
+            <li>{lines(it, ctx, `${keyBase}-li${k}-${j}`)}</li>
           ))}
-        </L>,
+        </Dynamic>,
       );
       continue;
     }
@@ -257,7 +258,7 @@ function blocks(src, ctx, keyBase = 'b') {
       !(RE.tableRow.test(ls[i]) && RE.tableSep.test(ls[i + 1] ?? ''))
     )
       para.push(ls[i++]);
-    out.push(<p key={key()}>{lines(para, ctx, key())}</p>);
+    out.push(<p>{lines(para, ctx, key())}</p>);
   }
   return out;
 }
@@ -274,6 +275,6 @@ function clean(text) {
     .replace(/&gt;/g, '>');
 }
 
-export default function Markdown({ text, onOpenBuild }) {
-  return <div className="md">{blocks(clean(text), { onOpenBuild })}</div>;
+export default function Markdown(props) {
+  return <div class="md">{blocks(clean(props.text), { onOpenBuild: props.onOpenBuild })}</div>;
 }

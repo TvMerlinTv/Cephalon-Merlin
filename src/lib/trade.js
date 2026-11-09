@@ -1,5 +1,5 @@
-import { evaluate } from './evaluate.js';
-import { builtCount, blueprintOnlyCount } from './GameData.jsx';
+import { evaluate, builtCount, blueprintOnlyCount } from './gamedb.js';
+export { copyToClipboard } from './gamedb.js';
 
 // Handel: welche Prime-Teile übrig sind (für Baro oder zum Verkaufen) und WTS-Nachrichten.
 
@@ -74,22 +74,4 @@ export function wtsMessages(entries, limit = CHAT_LIMIT) {
   }
   if (cur) msgs.push(cur);
   return msgs;
-}
-
-export function copyToClipboard(text) {
-  if (window.wf?.copyText) {
-    window.wf.copyText(text);
-    return Promise.resolve();
-  }
-  return navigator.clipboard.writeText(text).catch(() => {
-    // Ohne Schreibrecht auf die Zwischenablage: klassisch über ein unsichtbares Textfeld
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.cssText = 'position:fixed;opacity:0';
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    ta.remove();
-    if (!ok) throw new Error('Zwischenablage nicht verfügbar');
-  });
 }

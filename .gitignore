@@ -1,7 +1,10 @@
 node_modules/
 dist/
 release/
+src-tauri/target/
+src-tauri/gen/
 *.timestamp-*.mjs
-# aus overframe.gg ausgelesen – mit `node build/make-overframe-mods.cjs` selbst erzeugen
-src/lib/overframeMods.json
 .claude/
+# aus overframe.gg ausgelesen – mit `node legacy-electron/build/make-overframe-mods.cjs` selbst erzeugen
+src/lib/overframeMods.json
+legacy-electron/src/lib/overframeMods.json

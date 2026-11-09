@@ -1,8 +1,8 @@
 // Farb-Themes: setzen die CSS-Variablen aus styles.css (:root) neu.
-// Jede Farbe kann zusätzlich einzeln überschrieben werden (Einstellung "colors"),
-// die Akzentfarbe auch über "accent" (Schnellwahl). Dazu Eckenrundung und UI-Größe.
-import { useEffect, useRef, useState } from 'react';
-import { useSettings, setSettings } from './settings.js';
+// Jede Farbe kann einzeln überschrieben werden (Einstellung "colors"), die Akzentfarbe auch
+// über "accent" (Schnellwahl). Dazu Eckenrundung und UI-Größe. (Werte wie in der Electron-Version.)
+import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { settings, setSettings } from './settings.js';
 
 export const THEMES = [
   { id: 'default', label: 'Void (Standard)', colors: { bg: '#0f1219', bg2: '#151a25', panel: '#1a2030', card: '#222a3d', cardHover: '#29324a', line: '#2c3550', accent: '#6c4ce0' } },
@@ -14,18 +14,8 @@ export const THEMES = [
   { id: 'midnight', label: 'Mitternacht (OLED)', colors: { bg: '#000000', bg2: '#07080b', panel: '#0c0e13', card: '#13161d', cardHover: '#1a1e27', line: '#232837', accent: '#8b6dff' } },
 ];
 
-// Farben, die kein Theme ändert (Werte wie in styles.css :root)
-const BASE = {
-  text: '#e9edf7',
-  muted: '#8d96ad',
-  ok: '#3ccf8e',
-  err: '#ff6b7d',
-  warn: '#f2b84b',
-  red: '#6e2433',
-  green: '#1d5b43',
-};
+const BASE = { text: '#e9edf7', muted: '#8d96ad', ok: '#3ccf8e', err: '#ff6b7d', warn: '#f2b84b', red: '#6e2433', green: '#1d5b43' };
 
-// Alle einzeln einstellbaren Farben: Schlüssel, CSS-Variable, Beschriftung, Gruppe
 export const COLOR_KEYS = [
   { key: 'bg', css: '--bg', label: 'Hintergrund', group: 'Flächen' },
   { key: 'bg2', css: '--bg-2', label: 'Leisten & Eingabefelder', group: 'Flächen' },
@@ -47,7 +37,6 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 export const themeById = (id) => THEMES.find((t) => t.id === id) ?? THEMES[0];
 
-// Hellere Variante für Hover/Rahmen: 30 % Richtung Weiß
 export function lighten(hex, amount = 0.3) {
   const n = parseInt(hex.slice(1), 16);
   const ch = (shift) => {
@@ -63,7 +52,6 @@ export function resolveColors(s) {
   const out = { ...BASE, ...themeById(s.theme).colors };
   if (HEX.test(s.accent ?? '')) out.accent = s.accent;
   for (const { key } of COLOR_KEYS) if (HEX.test(own[key] ?? '')) out[key] = own[key];
-  // Helles Akzent folgt dem Akzent, solange es nicht selbst eingestellt ist
   if (!HEX.test(own.accent2 ?? '')) out.accent2 = lighten(out.accent);
   return out;
 }
@@ -73,39 +61,36 @@ export function applyTheme(s) {
   const root = document.documentElement.style;
   for (const { key, css } of COLOR_KEYS) root.setProperty(css, colors[key]);
   root.setProperty('--radius', `${s.radius ?? 12}px`);
-  // UI-Größe per CSS-Zoom nur auf dem Hauptfenster (Electron-Zoom würde auch das Overlay treffen).
-  // Breite/Höhe ausgleichen, damit die App trotzdem genau das Fenster füllt.
+  // UI-Größe per CSS-Zoom auf #root; Breite/Höhe ausgleichen, damit die App das Fenster füllt.
+  // Die Titelleiste (mit dem Größen-Regler) bleibt gleich groß – sonst sperrt man sich bei 1 % aus.
   const z = s.uiScale ?? 1;
   const app = document.getElementById('root').style;
   app.zoom = String(z);
-  // Titelleiste (mit dem Größen-Regler) bleibt immer gleich groß – sonst sperrt man sich bei 1 % aus
   root.setProperty('--ui-zoom', String(z));
   app.width = z === 1 ? '' : `${100 / z}vw`;
   app.height = z === 1 ? '' : `${100 / z}vh`;
 }
 
-/** Wendet das eingestellte Aussehen an und folgt Änderungen (Hauptfenster). */
+/** Wendet das eingestellte Aussehen an und folgt Änderungen. */
 export function useTheme() {
-  const s = useSettings();
-  useEffect(() => applyTheme(s), [s.theme, s.accent, s.colors, s.radius, s.uiScale]);
+  createEffect(() => applyTheme({ theme: settings.theme, accent: settings.accent, colors: { ...settings.colors }, radius: settings.radius, uiScale: settings.uiScale }));
 }
 
-// Für Farbwähler und Regler: beim Ziehen nur lokal anzeigen und kurz danach speichern –
-// sonst setzt jede Antwort des Main-Prozesses den Wähler mitten im Ziehen zurück.
-export function useDraftSave(s) {
-  const [draft, setDraft] = useState(null);
-  const timer = useRef(null);
-  useEffect(() => () => clearTimeout(timer.current), []);
+// Für Farbwähler und Regler: beim Ziehen sofort anzeigen, kurz danach speichern.
+export function createDraft() {
+  const [draft, setDraft] = createSignal(null);
+  let timer;
+  onCleanup(() => clearTimeout(timer));
+  const value = () => ({ ...settings, ...(draft() ?? {}) });
   const change = (patch) => {
-    const next = { ...(draft ?? {}), ...patch };
+    const next = { ...(draft() ?? {}), ...patch };
     setDraft(next);
-    applyTheme({ ...s, ...next });
-    clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
+    applyTheme({ ...settings, ...next });
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
       await setSettings(next);
       setDraft(null);
     }, 300);
   };
-  return [{ ...s, ...(draft ?? {}) }, change];
+  return [value, change];
 }
-

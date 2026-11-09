@@ -1,36 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { getPrice, getCachedPrice } from '../lib/api.js';
+import { onCleanup, onMount, Show } from 'solid-js';
+import { cachedPrice, loadPrice } from '../lib/market.js';
 import { Ducat } from './Icons.jsx';
-import { useT } from '../lib/i18n.js';
+import { t } from '../lib/i18n.js';
 
-/** Lädt den Preis erst, wenn die Karte sichtbar wird (schont das Rate-Limit). */
-export function usePrice(slug) {
-  const ref = useRef(null);
-  const [price, setPrice] = useState(() => getCachedPrice(slug));
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
-      io.disconnect();
-      getPrice(slug).then(setPrice).catch(() => setPrice((p) => p ?? { wts: null, wtb: null, error: true }));
-    });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [slug]);
-  return [ref, price];
-}
-
-/**
- * Inventar-Karte. Preise werden weiter geladen (für Gesamtwert und Sortierung), aber nicht auf der Karte
- * gezeigt – Preise und Verkaufen gibt es in den Details.
- * `image`: großes Bild (bei Teilen die Waffe/der Frame); `badge`: kleines Teil-Symbol im Kreis.
- */
 const RARITY = ['common', 'uncommon', 'rare', 'legendary'];
 const RARITY_DE = { common: 'Gewöhnlich', uncommon: 'Ungewöhnlich', rare: 'Selten', legendary: 'Legendär' };
 
 /** Kurze Typ-Zeile aus den warframe.market-Tags (z. B. „Mod · Rare“, „Relikt“, „Arcane“). */
-function typeLabel(tags, t) {
+export function typeLabel(tags) {
   const has = (x) => tags.includes(x);
   const rarity = RARITY.find(has);
   const rar = rarity ? ` · ${t(RARITY_DE[rarity])}` : '';
@@ -43,41 +20,54 @@ function typeLabel(tags, t) {
   return t('Item');
 }
 
-export default function ItemCard({ item, qty, image, badge, subtitle, onPrice, onOpen }) {
-  const t = useT();
-  const [ref, price] = usePrice(item.slug);
+/**
+ * Inventar-Karte. Der Preis wird erst geladen, wenn die Karte sichtbar wird (schont das Rate-Limit);
+ * gezeigt wird er in den Details, gezählt im Gesamtwert.
+ */
+export default function ItemCard(props) {
+  let el;
+  onMount(() => {
+    if (cachedPrice(props.item.slug)?.ts > Date.now() - 15 * 60 * 1000) return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      io.disconnect();
+      loadPrice(props.item.slug).catch(() => {});
+    });
+    io.observe(el);
+    onCleanup(() => io.disconnect());
+  });
+  const rarity = () => RARITY.find((r) => props.item.tags.includes(r));
+  const price = () => cachedPrice(props.item.slug);
 
-  useEffect(() => {
-    if (price && onPrice) onPrice(item.slug, price);
-  }, [price, item.slug, onPrice]);
-
-  const src = image ?? item.thumb;
-  const rarity = RARITY.find((r) => item.tags.includes(r));
   return (
-    <article className={`item-card inv-card${rarity ? ` rar-${rarity}` : ''}`} ref={ref} onClick={() => onOpen(item)}>
-      <div className="inv-art" title={t('Details anzeigen')}>
-        {src && <img src={src} alt="" loading="lazy" onError={(e) => item.thumb && e.currentTarget.src !== item.thumb && (e.currentTarget.src = item.thumb)} />}
-        {badge && (
-          <span className="item-badge">
-            <img src={badge} alt="" loading="lazy" />
-          </span>
-        )}
+    <article ref={el} class={`item-card inv-card${rarity() ? ` rar-${rarity()}` : ''}`} onClick={() => props.onOpen(props.item)}>
+      <div class="inv-art" title={t('Details anzeigen')}>
+        <Show when={props.item.thumb}>
+          <img src={props.item.thumb} alt="" loading="lazy" />
+        </Show>
       </div>
-      <div className="inv-main">
-        <button className="inv-name" onClick={(e) => (e.stopPropagation(), onOpen(item))} title={t('Details anzeigen')}>
-          {item.name}
+      <div class="inv-main">
+        <button class="inv-name" title={t('Details anzeigen')}>
+          {props.item.name}
         </button>
-        <span className="inv-sub">{subtitle ?? typeLabel(item.tags, t)}</span>
-        <div className="inv-chips">
-          <span className="inv-chip" title={t('Menge laut letztem Sync mit dem Spiel')}>
-            x{qty}
+        <span class="inv-sub">{typeLabel(props.item.tags)}</span>
+        <div class="inv-chips">
+          <span class="inv-chip" title={t('Menge laut letztem Sync mit dem Spiel')}>
+            x{props.qty}
           </span>
-          {item.ducats != null && (
-            <span className="inv-chip" title="Ducats">
-              <Ducat size={14} /> {item.ducats}
-              {qty > 1 && <small>· {(item.ducats * qty).toLocaleString()}</small>}
+          <Show when={props.item.ducats != null}>
+            <span class="inv-chip" title="Ducats">
+              <Ducat size={14} /> {props.item.ducats}
+              <Show when={props.qty > 1}>
+                <small>· {(props.item.ducats * props.qty).toLocaleString()}</small>
+              </Show>
             </span>
-          )}
+          </Show>
+          <Show when={price()?.wts != null}>
+            <span class="inv-chip" title={t('Günstigstes Verkaufsangebot (WTS)')}>
+              {price().wts} p
+            </span>
+          </Show>
         </div>
       </div>
     </article>

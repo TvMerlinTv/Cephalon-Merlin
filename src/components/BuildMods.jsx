@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Store, ExternalLink, X } from 'lucide-react';
-import { getItems, getPrice, openExternal } from '../lib/api.js';
-import { openMarket } from '../lib/builds.js';
-import { Plat } from './Icons.jsx';
-import { useSettings } from '../lib/settings.js';
-import { useT } from '../lib/i18n.js';
-
 // Mod-Belegung eines Overframe-Builds. slots[].mod sind Overframe-eigene IDs; die Zuordnung zu
-// DE-Mods steht in src/lib/overframeMods.json (build/make-overframe-mods.cjs) und wird erst hier nachgeladen.
-// Bilder: die Mod-Karten von warframe.market (wie im Inventar, über gameRef = DE-Pfad), sonst WFCD-Bilder.
-// Die Datei liegt nicht im Repository (aus Overframes Webseite ausgelesen) – fehlt sie, baut die App trotzdem,
-// die Builds zeigen dann nur keine Mod-Belegung.
+// DE-Mods steht in src/lib/overframeMods.json (nicht im Repository – fehlt sie, zeigen die Builds
+// nur keine Mod-Belegung). Bilder: Mod-Karten von warframe.market, sonst WFCD-Bilder.
+import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { Store, ExternalLink, X } from 'lucide-solid';
+import { getItems, cachedPrice, loadPrice } from '../lib/market.js';
+import { openExternal } from '../lib/ipc.js';
+import { openMarket } from '../pages/Market.jsx';
+import { Plat } from './Icons.jsx';
+import PolarityIcon from './Polarity.jsx';
+import { settings } from '../lib/settings.js';
+import { t } from '../lib/i18n.js';
+
 const modFiles = import.meta.glob('../lib/overframeMods.json');
 let dataPromise = null;
 export function loadData() {
@@ -23,249 +23,263 @@ export function loadData() {
   ]).then(([mods, market]) => ({ mods, market }));
   return dataPromise;
 }
-// Vorschaubild -> großes Kartenbild (…/thumbs/x.128x128.webp -> …/x.webp)
+/** Vorschaubild -> großes Kartenbild (…/thumbs/x.128x128.webp -> …/x.webp) */
 export const fullCard = (thumb) => thumb.replace('/thumbs/', '/').replace(/\.128x128(\.\w+)$/, '$1');
-
 export const WFCD_IMG = 'https://cdn.warframestat.us/img/';
-// Overframe-Polaritätsnummer -> Name (1–5 und 9 an echten Builds geprüft, 6–8 nach DEs Reihenfolge)
+
 const POLARITY = {
-  1: ['Madurai', 'M'],
-  2: ['Vazarin', 'V'],
-  3: ['Naramon', 'N'],
-  4: ['Zenurik', 'Z'],
-  5: ['Penjaga', 'P'],
-  6: ['Koneksi', 'K'],
-  7: ['Unairu', 'U'],
-  8: ['Umbra', 'Ω'],
-  9: ['Aura / Omni', '◇'],
+  1: ['Madurai', 'madurai'],
+  2: ['Vazarin', 'vazarin'],
+  3: ['Naramon', 'naramon'],
+  4: ['Zenurik', 'zenurik'],
+  5: ['Penjaga', 'penjaga'],
+  6: ['Koneksi', 'koneksi'],
+  7: ['Unairu', 'unairu'],
+  8: ['Umbra', 'umbra'],
+  9: ['Aura / Omni', 'aura'],
 };
 const KIND_LABEL = { aura: 'Aura', stance: 'Haltung', arcane: 'Arcane', exilus: 'Exilus' };
 
-function Rank({ rank, max }) {
-  if (!max) return <span className="bm-rank-text">R{rank}</span>;
+function Rank(props) {
   return (
-    <span className="bm-rank" title={`${rank}/${max}`}>
-      {Array.from({ length: max }, (_, i) => (
-        <i key={i} className={i < rank ? 'on' : ''} />
-      ))}
-    </span>
+    <Show when={props.max} fallback={<span class="bm-rank-text">R{props.rank}</span>}>
+      <span class="bm-rank" title={`${props.rank}/${props.max}`}>
+        <For each={Array.from({ length: props.max }, (_, i) => i)}>{(i) => <i classList={{ on: i < props.rank }} />}</For>
+      </span>
+    </Show>
   );
 }
 
-function Drain({ slot, kind }) {
-  const t = useT();
-  if (kind === 'arcane') return null;
-  const pol = POLARITY[slot.polarity];
-  const match = slot.polarity_match === 2 ? 'match' : slot.polarity_match === 0 ? 'miss' : '';
+function Drain(props) {
+  const pol = () => POLARITY[props.slot.polarity];
+  const match = () => (props.slot.polarity_match === 2 ? 'match' : props.slot.polarity_match === 0 ? 'miss' : '');
   return (
-    <span className={`bm-drain ${match}`} title={pol ? t('Polarität: {p}', { p: pol[0] }) : t('Ohne Polarität')}>
-      {kind === 'aura' ? `+${Math.abs(slot.drain)}` : slot.drain}
-      {pol && <span className="bm-pol">{pol[1]}</span>}
-    </span>
+    <Show when={props.kind !== 'arcane'}>
+      <span class={`bm-drain ${match()}`} title={pol() ? t('Polarität: {p}', { p: pol()[0] }) : t('Ohne Polarität')}>
+        {props.kind === 'aura' ? `+${Math.abs(props.slot.drain)}` : props.slot.drain}
+        <Show when={pol()}>
+          <PolarityIcon name={pol()[1]} size="1.05em" />
+        </Show>
+      </span>
+    </Show>
   );
 }
 
-// Beim Klick auf eine Mod: Preise und Wege zum Markt
-function MarketPanel({ market, name, rank, onClose }) {
-  const t = useT();
-  const [price, setPrice] = useState(null); // Rang 0
-  const [maxPrice, setMaxPrice] = useState(null); // Max-Rang
-  const max = market?.maxRank ?? 0;
-  const ref = useRef(null);
-  useEffect(() => {
-    let alive = true;
-    // Mods: Rang 0 und Max getrennt – gemischt wären die Preise verfälscht
-    if (market) getPrice(market.slug).then((p) => alive && setPrice(p)).catch(() => alive && setPrice({}));
-    if (market && max > 0)
-      getPrice(market.slug, { rank: max }).then((p) => alive && setMaxPrice(p)).catch(() => alive && setMaxPrice({}));
-    const close = (e) => !ref.current?.parentElement?.contains(e.target) && onClose();
-    const esc = (e) => e.key === 'Escape' && onClose();
+// Beim Klick auf eine Mod: Preise (Rang 0 und Max getrennt) und Wege zum Markt
+function MarketPanel(props) {
+  let ref;
+  const m = props.market;
+  const max = m?.maxRank ?? 0;
+  if (m) {
+    loadPrice(m.slug).catch(() => {});
+    if (max > 0) loadPrice(m.slug, { rank: max }).catch(() => {});
+  }
+  const close = (e) => !ref?.parentElement?.contains(e.target) && props.onClose();
+  const esc = (e) => e.key === 'Escape' && props.onClose();
+  onMount(() => {
     document.addEventListener('mousedown', close);
     document.addEventListener('keydown', esc);
-    return () => {
-      alive = false;
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [market, max, onClose]);
+  });
+  onCleanup(() => {
+    document.removeEventListener('mousedown', close);
+    document.removeEventListener('keydown', esc);
+  });
+  const p0 = () => (m ? cachedPrice(m.slug) : null);
+  const pMax = () => (m ? cachedPrice(m.slug, max) : null);
   return (
-    <div className="bm-market" ref={ref} onClick={(e) => e.stopPropagation()}>
-      <div className="bm-market-head">
-        <b>{name}</b>
-        <button className="icon-btn" onClick={onClose} aria-label={t('Schließen')}>
+    <div class="bm-market" ref={ref} onClick={(e) => e.stopPropagation()}>
+      <div class="bm-market-head">
+        <b>{props.name}</b>
+        <button class="icon-btn" onClick={props.onClose} aria-label={t('Schließen')}>
           <X size={14} />
         </button>
       </div>
-      {market ? (
-        <>
-          {/* Zum Kaufen zählt nur das günstigste Angebot (online/ingame) */}
-          <div className="bm-market-prices" title={t('Günstigstes Angebot von Spielern, die gerade online sind')}>
-            <span className="muted small">{t('Kaufen ab')}</span>
-            {max > 0 ? (
-              <>
-                <span className={`bm-price-row ${rank >= max ? 'hit' : ''}`}>
-                  <small>{t('Max (Rang {n})', { n: max })}</small>
-                  <span className="price wts">
-                    <b>{maxPrice ? maxPrice.wts ?? '–' : '…'}</b> <Plat />
-                  </span>
-                </span>
-                <span className={`bm-price-row ${rank < max ? 'hit' : ''}`}>
-                  <small>{t('Rang 0')}</small>
-                  <span className="price wts">
-                    <b>{price ? price.wts ?? '–' : '…'}</b> <Plat />
-                  </span>
-                </span>
-              </>
-            ) : (
-              <span className="price wts">
-                <b>{price ? price.wts ?? '–' : '…'}</b> <Plat />
+      <Show when={m} fallback={<p class="muted small">{t('Nicht auf warframe.market handelbar.')}</p>}>
+        <div class="bm-market-prices" title={t('Günstigstes Angebot von Spielern, die gerade online sind')}>
+          <span class="muted small">{t('Kaufen ab')}</span>
+          <Show
+            when={max > 0}
+            fallback={
+              <span class="price wts">
+                <b>{p0() ? p0().wts ?? '–' : '…'}</b> <Plat />
               </span>
-            )}
-          </div>
-          <button className="btn btn-primary" onClick={() => openMarket(market.slug)}>
-            <Store size={14} /> {t('Im Markt ansehen')}
-          </button>
-          <button className="btn" onClick={() => openExternal(`https://warframe.market/items/${market.slug}`)}>
-            <ExternalLink size={14} /> {t('Auf warframe.market')}
-          </button>
-        </>
-      ) : (
-        <p className="muted small">{t('Nicht auf warframe.market handelbar.')}</p>
-      )}
+            }
+          >
+            <span class="bm-price-row" classList={{ hit: props.rank >= max }}>
+              <small>{t('Max (Rang {n})', { n: max })}</small>
+              <span class="price wts">
+                <b>{pMax() ? pMax().wts ?? '–' : '…'}</b> <Plat />
+              </span>
+            </span>
+            <span class="bm-price-row" classList={{ hit: props.rank < max }}>
+              <small>{t('Rang 0')}</small>
+              <span class="price wts">
+                <b>{p0() ? p0().wts ?? '–' : '…'}</b> <Plat />
+              </span>
+            </span>
+          </Show>
+        </div>
+        <button class="btn btn-primary" onClick={() => openMarket(m.slug)}>
+          <Store size={14} /> {t('Im Markt ansehen')}
+        </button>
+        <button class="btn" onClick={() => openExternal(`https://warframe.market/items/${m.slug}`)}>
+          <ExternalLink size={14} /> {t('Auf warframe.market')}
+        </button>
+      </Show>
     </div>
   );
 }
 
-function ModCard({ slot, mod, market, kind, label, open, onToggle }) {
-  const card = market?.thumb;
-  const t = useT();
-  const { language } = useSettings();
-  const [src, setSrc] = useState(card ? fullCard(card) : null);
-  useEffect(() => setSrc(card ? fullCard(card) : null), [card]);
+function ModCard(props) {
+  const slot = props.slot;
+  const mod = props.mod;
+  const card = props.market?.thumb;
+  const [src, setSrc] = createSignal(card ? fullCard(card) : null);
+  const name = () => (mod ? (settings.language === 'de' && mod.d) || mod.n : t('Unbekannte Mod #{id}', { id: slot.mod }));
+  const rar = `rar-${mod?.ra ?? 'common'}`;
+  // Großes Kartenbild; lädt es nicht, das kleine, dann gar keins (Ersatzkarte)
+  const onError = () => setSrc((s) => (s && card && s !== card ? card : null));
+  const art = () => src() ?? (mod?.i ? WFCD_IMG + mod.i : null);
 
   if (!slot?.mod)
     return (
-      <div className={`bm-slot ${kind === 'arcane' ? 'bm-slot-arcane' : ''}`}>
-        <div className={`bm-card bm-empty ${kind === 'arcane' ? 'bm-round' : ''}`}>{label && <small>{t(label)}</small>}</div>
+      <div class="bm-slot" classList={{ 'bm-slot-arcane': props.kind === 'arcane' }}>
+        <div class="bm-card bm-empty" classList={{ 'bm-round': props.kind === 'arcane' }}>
+          <Show when={props.label}>
+            <small>{t(props.label)}</small>
+          </Show>
+        </div>
       </div>
     );
 
-  const name = mod ? (language === 'de' && mod.d) || mod.n : t('Unbekannte Mod #{id}', { id: slot.mod });
-  const rar = `rar-${mod?.ra ?? 'common'}`;
-  // Großes Kartenbild von warframe.market; lädt es nicht, das kleine, dann gar keins (Ersatzkarte)
-  const onError = () => setSrc((s) => (s && card && s !== card ? card : null));
-  const art = src ?? (mod?.i ? WFCD_IMG + mod.i : null);
-  const tip = mod ? null : t('Diese Mod fehlt in der Zuordnungsliste – auf Overframe ansehen.');
-
-  if (kind === 'arcane')
+  if (props.kind === 'arcane')
     return (
-      <div className={`bm-slot bm-slot-arcane bm-click ${open ? 'open' : ''}`} onClick={onToggle} title={`${name} · ${t('Rang {a}/{b}', { a: slot.rank, b: mod?.r ?? '?' })}`}>
-        <div className={`bm-card bm-round ${rar}`}>{art && <img src={art} alt="" loading="lazy" onError={onError} />}</div>
-        <span className="bm-name">{name}</span>
+      <div class="bm-slot bm-slot-arcane bm-click" classList={{ open: props.open }} onClick={props.onToggle} title={`${name()} · ${t('Rang {a}/{b}', { a: slot.rank, b: mod?.r ?? '?' })}`}>
+        <div class={`bm-card bm-round ${rar}`}>
+          <Show when={art()}>
+            <img src={art()} alt="" loading="lazy" onError={onError} />
+          </Show>
+        </div>
+        <span class="bm-name">{name()}</span>
         <Rank rank={slot.rank} max={mod?.r} />
-        {open && <MarketPanel market={market} name={name} rank={slot.rank} onClose={onToggle} />}
+        <Show when={props.open}>
+          <MarketPanel market={props.market} name={name()} rank={slot.rank} onClose={props.onToggle} />
+        </Show>
       </div>
     );
 
   return (
     <div
-      className={`bm-slot bm-click ${open ? 'open' : ''}`}
-      title={tip ?? undefined}
+      class="bm-slot bm-click"
+      classList={{ open: props.open }}
+      title={mod ? undefined : t('Diese Mod fehlt in der Zuordnungsliste – auf Overframe ansehen.')}
       tabIndex={0}
-      onClick={onToggle}
-      onKeyDown={(e) => e.key === 'Enter' && onToggle()}
+      onClick={props.onToggle}
+      onKeyDown={(e) => e.key === 'Enter' && props.onToggle()}
     >
-      {label && <small className="bm-label">{t(label)}</small>}
+      <Show when={props.label}>
+        <small class="bm-label">{t(props.label)}</small>
+      </Show>
       {/* Eingeklappt: breite Leiste mit Bildausschnitt, Name, Drain und Rang – wie auf overframe.gg */}
-      <div className={`bm-card bm-strip ${rar} ${mod ? '' : 'bm-unknown'}`}>
-        {art && <img className={src ? 'bm-strip-card' : 'bm-strip-art'} src={art} alt="" loading="lazy" onError={onError} />}
-        <span className="bm-strip-name">{name}</span>
-        <Drain slot={slot} kind={kind} />
-        <span className="bm-strip-rank">
+      <div class={`bm-card bm-strip ${rar}`} classList={{ 'bm-unknown': !mod }}>
+        <Show when={art()}>
+          <img class={src() ? 'bm-strip-card' : 'bm-strip-art'} src={art()} alt="" loading="lazy" onError={onError} />
+        </Show>
+        <span class="bm-strip-name">{name()}</span>
+        <Drain slot={slot} kind={props.kind} />
+        <span class="bm-strip-rank">
           <Rank rank={slot.rank} max={mod?.r} />
         </span>
       </div>
       {/* Beim Drüberfahren: die ganze Karte */}
-      <div className={`bm-full ${rar}`} aria-hidden="true">
-        {src ? (
-          <img src={src} alt="" loading="lazy" onError={onError} />
-        ) : (
-          <div className="bm-fallback">
-            <span className="bm-fb-img">{art && <img src={art} alt="" loading="lazy" />}</span>
-            <b>{name}</b>
-            <small>{t('Rang {a}/{b}', { a: slot.rank, b: mod?.r ?? '?' })}</small>
-          </div>
-        )}
-        <Drain slot={slot} kind={kind} />
-        {/* Kartenbilder zeigen den Rang schon selbst */}
-        {!src && (
-          <span className="bm-full-rank">
+      <div class={`bm-full ${rar}`} aria-hidden="true">
+        <Show
+          when={src()}
+          fallback={
+            <div class="bm-fallback">
+              <span class="bm-fb-img">
+                <Show when={art()}>
+                  <img src={art()} alt="" loading="lazy" />
+                </Show>
+              </span>
+              <b>{name()}</b>
+              <small>{t('Rang {a}/{b}', { a: slot.rank, b: mod?.r ?? '?' })}</small>
+            </div>
+          }
+        >
+          <img src={src()} alt="" loading="lazy" onError={onError} />
+        </Show>
+        <Drain slot={slot} kind={props.kind} />
+        <Show when={!src()}>
+          <span class="bm-full-rank">
             <Rank rank={slot.rank} max={mod?.r} />
           </span>
-        )}
+        </Show>
       </div>
-      {open && <MarketPanel market={market} name={name} rank={slot.rank} onClose={onToggle} />}
+      <Show when={props.open}>
+        <MarketPanel market={props.market} name={name()} rank={slot.rank} onClose={props.onToggle} />
+      </Show>
     </div>
   );
 }
 
-export default function BuildMods({ slots }) {
-  const t = useT();
-  const [data, setData] = useState(null);
-  const [openSlot, setOpenSlot] = useState(null); // Mod mit offenem Markt-Fenster
-  const toggle = useCallback((id) => () => setOpenSlot((cur) => (cur === id ? null : id)), []);
-  useEffect(() => {
-    loadData()
-      .then(setData)
-      .catch(() => setData({ mods: {}, market: new Map() }));
-  }, []);
-  useEffect(() => setOpenSlot(null), [slots]);
-  if (!slots?.length) return null;
-  if (!data) return <div className="bm-loading muted small">{t('Lade Mods …')}</div>;
+export default function BuildMods(props) {
+  const [data] = createResource(() => loadData().catch(() => ({ mods: {}, market: new Map() })));
+  const [openSlot, setOpenSlot] = createSignal(null);
+  const toggle = (id) => () => setOpenSlot((cur) => (cur === id ? null : id));
 
-  const { mods, market } = data;
-  const bySlot = new Map(slots.map((s) => [s.slot_id, s]));
-  const kindOf = (s) => mods[s?.mod]?.k ?? 'mod';
-  const extra = slots.filter((s) => s.slot_id > 8);
-  // Begleiter haben 10 normale Mod-Plätze, alle anderen 8 plus Aura/Haltung/Exilus/Arcanes
-  const companion = slots.length === 10 && extra.every((s) => kindOf(s) === 'mod');
-  // Reihenfolge wie auf overframe.gg: oben Platz 8–5, unten 4–1
-  const rows = companion ? [[10, 9, 8, 7, 6], [5, 4, 3, 2, 1]] : [[8, 7, 6, 5], [4, 3, 2, 1]];
-  // Leere Plätze hinter dem ersten Arcane sind auch Arcane-Plätze
-  const firstArcane = Math.min(...extra.filter((s) => s.mod && kindOf(s) === 'arcane').map((s) => s.slot_id));
-  const isArcane = (s) => (s.mod ? kindOf(s) === 'arcane' : s.slot_id > firstArcane);
-  const special = companion ? [] : extra.filter((s) => !isArcane(s));
-  const arcanes = companion ? [] : extra.filter(isArcane);
+  const layout = () => {
+    const d = data();
+    const slots = props.slots;
+    if (!d || !slots?.length) return null;
+    const { mods, market } = d;
+    const bySlot = new Map(slots.map((s) => [s.slot_id, s]));
+    const kindOf = (s) => mods[s?.mod]?.k ?? 'mod';
+    const extra = slots.filter((s) => s.slot_id > 8);
+    // Begleiter haben 10 normale Mod-Plätze, alle anderen 8 plus Aura/Haltung/Exilus/Arcanes
+    const companion = slots.length === 10 && extra.every((s) => kindOf(s) === 'mod');
+    const rows = companion ? [[10, 9, 8, 7, 6], [5, 4, 3, 2, 1]] : [[8, 7, 6, 5], [4, 3, 2, 1]];
+    const firstArcane = Math.min(...extra.filter((s) => s.mod && kindOf(s) === 'arcane').map((s) => s.slot_id));
+    const isArcane = (s) => (s.mod ? kindOf(s) === 'arcane' : s.slot_id > firstArcane);
+    const special = companion ? [] : extra.filter((s) => !isArcane(s));
+    const arcanes = companion ? [] : extra.filter(isArcane);
+    return { mods, market, bySlot, kindOf, companion, rows, special, arcanes };
+  };
 
-  const card = (s, kind, label) => (
-    <ModCard
-      key={s?.slot_id ?? label}
-      slot={s}
-      mod={mods[s?.mod]}
-      market={market.get(mods[s?.mod]?.p)}
-      kind={kind}
-      label={label}
-      open={openSlot === s?.slot_id}
-      onToggle={toggle(s?.slot_id)}
-    />
+  const card = (L, s, kind, label) => (
+    <ModCard slot={s} mod={L.mods[s?.mod]} market={L.market.get(L.mods[s?.mod]?.p)} kind={kind} label={label} open={openSlot() === s?.slot_id} onToggle={toggle(s?.slot_id)} />
   );
 
   return (
-    <section className={`bm ${companion ? 'bm-companion' : ''}`}>
-      {special.length > 0 && (
-        <div className="bm-row bm-center">
-          {special.map((s) => {
-            const k = s.mod && kindOf(s) !== 'mod' ? kindOf(s) : s.mod ? 'exilus' : 'exilus';
-            return card(s, k === 'exilus' ? 'mod' : k, KIND_LABEL[k]);
-          })}
-        </div>
-      )}
-      {rows.map((row, i) => (
-        <div className="bm-row" key={i}>
-          {row.map((id) => card(bySlot.get(id) ?? { slot_id: id }, 'mod'))}
-        </div>
-      ))}
-      {arcanes.length > 0 && <div className="bm-row bm-center bm-arcanes">{arcanes.map((s) => card(s, 'arcane', 'Arcane'))}</div>}
-    </section>
+    <Show when={props.slots?.length}>
+      <Show when={layout()} fallback={<div class="bm-loading muted small">{t('Lade Mods …')}</div>}>
+        {(L) => (
+          <section class="bm" classList={{ 'bm-companion': L().companion }}>
+            <Show when={L().special.length > 0}>
+              <div class="bm-row bm-center">
+                <For each={L().special}>
+                  {(s) => {
+                    const k = s.mod && L().kindOf(s) !== 'mod' ? L().kindOf(s) : 'exilus';
+                    return card(L(), s, k === 'exilus' ? 'mod' : k, KIND_LABEL[k]);
+                  }}
+                </For>
+              </div>
+            </Show>
+            <For each={L().rows}>
+              {(row) => (
+                <div class="bm-row">
+                  <For each={row}>{(id) => card(L(), L().bySlot.get(id) ?? { slot_id: id }, 'mod')}</For>
+                </div>
+              )}
+            </For>
+            <Show when={L().arcanes.length > 0}>
+              <div class="bm-row bm-center bm-arcanes">
+                <For each={L().arcanes}>{(s) => card(L(), s, 'arcane', 'Arcane')}</For>
+              </div>
+            </Show>
+          </section>
+        )}
+      </Show>
+    </Show>
   );
 }

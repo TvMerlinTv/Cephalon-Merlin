@@ -1,10 +1,11 @@
-// Kleine eigene Icons (Platin, Ducats, Logo) – der Rest kommt aus lucide-react.
-import { useT } from '../lib/i18n.js';
+// Kleine eigene Icons (Platin, Ducats, Logo) – der Rest kommt aus lucide-solid.
+import { t } from '../lib/i18n.js';
 
-// Cephalon Merlin: Zauberhut mit leuchtendem Cephalon-Kern (gleiche Formen wie build/make-icon.cjs)
-export function Logo({ size = 22 }) {
+// Cephalon Merlin: Zauberhut mit leuchtendem Cephalon-Kern
+export function Logo(props) {
+  const size = () => props.size ?? 22;
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width={size()} height={size()} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <ellipse cx="12" cy="17.2" rx="9.6" ry="2.5" fill="currentColor" opacity="0.75" />
       <path d="M6.6 16.6 9.4 10.4 11.6 6 13.6 3.2 16.4 1.6 15.2 3.6 15 6.6 15.6 10.6 17.4 16.6Z" fill="currentColor" />
       <path d="M12 8.7 14.3 12 12 15.3 9.7 12Z" fill="var(--accent-2)" />
@@ -15,28 +16,29 @@ export function Logo({ size = 22 }) {
   );
 }
 
-export function Plat({ size = 14 }) {
-  const t = useT();
+export function Plat(props) {
+  const size = () => props.size ?? 14;
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" className="icon-plat" aria-label={t('Platin')}>
+    <svg width={size()} height={size()} viewBox="0 0 16 16" class="icon-plat" aria-label={t('Platin')}>
       <defs>
         <linearGradient id="pl" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#f4f7ff" />
-          <stop offset="1" stopColor="#9aa3b8" />
+          <stop offset="0" stop-color="#f4f7ff" />
+          <stop offset="1" stop-color="#9aa3b8" />
         </linearGradient>
       </defs>
       <path d="M8 1 14 5v6l-6 4-6-4V5l6-4Z" fill="url(#pl)" />
-      <path d="M8 1v14M2 5l12 6M14 5 2 11" stroke="#7d869c" strokeWidth=".6" />
+      <path d="M8 1v14M2 5l12 6M14 5 2 11" stroke="#7d869c" stroke-width=".6" />
     </svg>
   );
 }
 
-export function Ducat({ size = 14 }) {
+export function Ducat(props) {
+  const size = () => props.size ?? 14;
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" aria-label="Ducats">
+    <svg width={size()} height={size()} viewBox="0 0 16 16" aria-label="Ducats">
       <circle cx="8" cy="8" r="7" fill="#c9a24a" />
-      <circle cx="8" cy="8" r="4.6" fill="none" stroke="#7a5c1c" strokeWidth="1.2" />
-      <path d="M8 4.8v6.4" stroke="#7a5c1c" strokeWidth="1.2" />
+      <circle cx="8" cy="8" r="4.6" fill="none" stroke="#7a5c1c" stroke-width="1.2" />
+      <path d="M8 4.8v6.4" stroke="#7a5c1c" stroke-width="1.2" />
     </svg>
   );
 }

@@ -1,72 +1,114 @@
-import { useEffect, useState } from 'react';
+import { createSignal, Match, Show, Switch } from 'solid-js';
+import { PanelRightOpen, PanelRightClose } from 'lucide-solid';
 import TitleBar from './components/TitleBar.jsx';
-import Sidebar from './components/Sidebar.jsx';
+import { UpdateBadge } from './components/UpdateNotice.jsx';
+import Sidebar, { NAV } from './components/Sidebar.jsx';
+import Settings from './components/Settings.jsx';
+import ConfirmClose from './components/ConfirmClose.jsx';
+import MaterialInfo from './components/MaterialInfo.jsx';
+import SyncBadge from './components/SyncBadge.jsx';
 import TimerPanel from './components/TimerPanel.jsx';
+import Help from './pages/Help.jsx';
 import Inventory from './pages/Inventory.jsx';
-import Mastery from './pages/Mastery.jsx';
-import Market from './pages/Market.jsx';
+import World from './pages/World.jsx';
 import Relics from './pages/Relics.jsx';
-import Foundry from './pages/Foundry.jsx';
+import Mastery from './pages/Mastery.jsx';
 import Rivens from './pages/Rivens.jsx';
-import Stats from './pages/Stats.jsx';
+import Market from './pages/Market.jsx';
 import Trade from './pages/Trade.jsx';
 import Builds from './pages/Builds.jsx';
-import Settings from './components/Settings.jsx';
-import Help from './pages/Help.jsx';
-import { load, save } from './lib/api.js';
+import Stats from './pages/Stats.jsx';
+import Foundry from './pages/Foundry.jsx';
+import { useBaroDucatReminder } from './lib/baroDucats.js';
+import Soon from './pages/Soon.jsx';
+import { load, save } from './lib/ipc.js';
 import { useTheme } from './lib/theme.js';
-import { usePriceAlertChecker } from './lib/priceAlerts.js';
-
+import { t } from './lib/i18n.js';
 
 export default function App() {
-  const [page, setPage] = useState(() => {
-    const p = load('td.page', 'inventory');
-    return p === 'settings' ? 'inventory' : p;
-  });
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  // Timer/Relikte-Panel rechts einklappbar (gemerkt)
-  const [panelOpen, setPanelOpen] = useState(() => load('td.panel.open', true));
+  const [page, setPage] = createSignal(load('cm.page', 'inventory'));
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
+  // Timer-Panel rechts einklappbar (gemerkt); auf der Weltstatus-Seite wäre es doppelt
+  const [panelOpen, setPanelOpen] = createSignal(load('cm.panel.open', true));
   const togglePanel = (open) => {
     setPanelOpen(open);
-    save('td.panel.open', open);
+    save('cm.panel.open', open);
   };
+  const showPanel = () => panelOpen() && page() !== 'world';
   useTheme();
-  usePriceAlertChecker(); // Preis-Alarme: kurz nach dem Start + alle X Minuten
+  useBaroDucatReminder();
 
   const go = (p) => {
     // Einstellungen sind ein Fenster über der aktuellen Seite
     if (p === 'settings') return setSettingsOpen(true);
     setPage(p);
-    save('td.page', p);
+    save('cm.page', p);
   };
-  // Andere Seiten können hierher springen (z. B. „Builds“ aus den Item-Details, src/lib/builds.js)
-  useEffect(() => {
-    const onNav = (e) => go(e.detail);
-    window.addEventListener('cm:navigate', onNav);
-    return () => window.removeEventListener('cm:navigate', onNav);
-  }, []);
+  window.addEventListener('cm:navigate', (e) => go(e.detail));
+  const label = () => NAV.find((n) => n.id === page())?.label ?? '';
 
-  let content;
-  if (page === 'inventory') content = <Inventory />;
-  else if (page === 'mastery') content = <Mastery />;
-  else if (page === 'market') content = <Market />;
-  else if (page === 'relics') content = <Relics />;
-  else if (page === 'foundry') content = <Foundry />;
-  else if (page === 'rivens') content = <Rivens />;
-  else if (page === 'stats') content = <Stats />;
-  else if (page === 'trade') content = <Trade />;
-  else if (page === 'builds') content = <Builds />;
-  else content = <Help onNavigate={go} />;
+  const panelButton = (
+    <Show when={page() !== 'world'}>
+      <button
+        class="panel-toggle"
+        classList={{ active: panelOpen() }}
+        onClick={() => togglePanel(!panelOpen())}
+        title={t(panelOpen() ? 'Timer/Relikte ausblenden' : 'Timer/Relikte einblenden')}
+      >
+        {panelOpen() ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
+      </button>
+    </Show>
+  );
 
   return (
-    <div className="app">
-      <TitleBar panelOpen={panelOpen} onTogglePanel={() => togglePanel(!panelOpen)} />
-      <div className={`body ${panelOpen ? '' : 'panel-collapsed'}`}>
-        <Sidebar page={settingsOpen ? 'settings' : page} onNavigate={go} />
-        <main className="content">{content}</main>
-        <TimerPanel open={panelOpen} onToggle={togglePanel} />
+    <div class="app">
+      <TitleBar left={<><SyncBadge /><UpdateBadge /></>} right={panelButton} />
+      <div class="body" classList={{ 'panel-collapsed': !showPanel() }}>
+        <Sidebar page={settingsOpen() ? 'settings' : page()} onNavigate={go} />
+        <main class="content">
+          <Switch fallback={<Soon label={label()} />}>
+            <Match when={page() === 'inventory'}>
+              <Inventory />
+            </Match>
+            <Match when={page() === 'foundry'}>
+              <Foundry />
+            </Match>
+            <Match when={page() === 'stats'}>
+              <Stats />
+            </Match>
+            <Match when={page() === 'builds'}>
+              <Builds />
+            </Match>
+            <Match when={page() === 'market'}>
+              <Market />
+            </Match>
+            <Match when={page() === 'trade'}>
+              <Trade />
+            </Match>
+            <Match when={page() === 'rivens'}>
+              <Rivens />
+            </Match>
+            <Match when={page() === 'mastery'}>
+              <Mastery />
+            </Match>
+            <Match when={page() === 'relics'}>
+              <Relics />
+            </Match>
+            <Match when={page() === 'world'}>
+              <World />
+            </Match>
+            <Match when={page() === 'help'}>
+              <Help onNavigate={go} />
+            </Match>
+          </Switch>
+        </main>
+        <Show when={showPanel()}>
+          <TimerPanel onCollapse={() => togglePanel(false)} />
+        </Show>
       </div>
-      {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen() && <Settings onClose={() => setSettingsOpen(false)} />}
+      <MaterialInfo />
+      <ConfirmClose />
     </div>
   );
 }

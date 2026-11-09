@@ -1,40 +1,38 @@
-import { useEffect, useMemo, useState } from 'react';
-import { game, getItems, getBulkPrices } from './api.js';
-import { useGameData, builtCount, blueprintOnlyCount } from './GameData.jsx';
-import { useMasteryDb } from './masteryDb.js';
-import { useTodo } from './todo.js';
-import { expectedValue } from './relicMath.js';
+// Alles, was Overlay und Relikt-Seiten zu einem Relikt-Teil wissen müssen:
+// Preis, Ducats, wie viele du hast, ob dir das Item für Mastery fehlt, Set-Teile und Set-Preis.
+import { createMemo, createResource } from 'solid-js';
+import { game } from './game.js';
+import { getItems } from './market.js';
+import { loadMasteryDb, loadRelicDb, loadBulkPrices, builtCount, blueprintOnlyCount, todo, expectedValue } from './gamedb.js';
 
-let relicPromise = null;
-const loadRelics = () => (relicPromise ??= game.relicDb().catch((e) => ((relicPromise = null), Promise.reject(e))));
+let basePromise = null;
+function loadBase() {
+  basePromise ??= Promise.all([loadRelicDb(), getItems(), loadBulkPrices(), loadMasteryDb().catch(() => null)])
+    .then(([relicDb, items, prices, mastery]) => {
+      const rewards = new Map();
+      for (const r of relicDb.relics) for (const w of r.rewards.intact ?? []) rewards.set(w.name, w);
+      const relicMap = new Map(relicDb.relics.map((r) => [r.id, r]));
+      return { relicDb, relicMap, prices, market: new Map(items.map((i) => [i.slug, i])), rewards, mastery };
+    })
+    .catch((e) => {
+      basePromise = null;
+      throw e;
+    });
+  return basePromise;
+}
 
-/**
- * Alles, was das Overlay zu einem Relikt-Teil wissen muss:
- * Preis, Ducats, wie viele du hast, ob dir das Item für Mastery fehlt, Set-Teile und Set-Preis.
- */
-export function useRewardInfo() {
-  const { inventory } = useGameData();
-  const { db: mastery } = useMasteryDb();
-  const todo = useTodo();
-  const [data, setData] = useState(null);
-
-  useEffect(() => {
-    Promise.all([loadRelics(), getItems(), getBulkPrices()])
-      .then(([relicDb, items, prices]) => {
-        // Teilname -> { id, slug } aus allen Relikten
-        const rewards = new Map();
-        for (const r of relicDb.relics) for (const w of r.rewards.intact ?? []) rewards.set(w.name, w);
-        setData({ relicDb, prices, market: new Map(items.map((i) => [i.slug, i])), rewards });
-      })
-      .catch(() => {});
-  }, []);
-
-  return useMemo(() => {
-    if (!data) return { ready: false };
-    const { relicDb, prices, market, rewards } = data;
+/** Reaktiv: liefert ri() = { ready, info, pick, relicById, relicProgress, recommend, priceOf, player } */
+export function createRewardInfo() {
+  const [base] = createResource(loadBase);
+  return createMemo(() => {
+    const data = base();
+    const inventory = game.inventory;
+    const todoIds = todo();
+    if (!data) return { ready: false, error: base.error?.message };
+    const { relicDb, relicMap, prices, market, rewards, mastery } = data;
     const priceOf = (name) => prices[name.toLowerCase()] ?? null;
 
-    // Waffen, die selbst Bauteil einer anderen sind (Lex Prime -> Aklex Prime, 2x Bronco Prime -> Akbronco Prime)
+    // Waffen, die selbst Bauteil einer anderen sind (Lex Prime -> Aklex Prime)
     const usedIn = new Map();
     for (const it of mastery?.items ?? []) {
       for (const c of it.components) {
@@ -44,18 +42,17 @@ export function useRewardInfo() {
       }
     }
     const isDone = (it) => (inventory?.xp[it.id] ?? 0) >= it.maxXp || (inventory?.owned[it.id] ?? 0) > 0;
-    /** Wird diese Waffe noch für ein anderes, nicht fertiges Item gebraucht (und hast du nicht genug)? */
     const neededFor = (it) =>
-      (usedIn.get(it.id) ?? []).find(({ item: parent, count }) => !isDone(parent) && (inventory?.owned[it.id] ?? 0) < count)?.item ??
-      null;
+      (usedIn.get(it.id) ?? []).find(({ item: parent, count }) => !isDone(parent) && (inventory?.owned[it.id] ?? 0) < count)?.item ?? null;
 
+    const cache = new Map();
     const info = (name) => {
+      if (cache.has(name)) return cache.get(name);
       const reward = rewards.get(name) ?? { name };
       const m = reward.slug ? market.get(reward.slug) : null;
       const entry = reward.id ? mastery?.index.get(reward.id) : null;
       const item = entry?.item ?? null;
       const part = entry?.part ?? null;
-      // Gebautes Bauteil + seine Blaupause (Relikte droppen die Blaupause, das Set braucht das Bauteil)
       const have = part
         ? builtCount(inventory, part.id) + blueprintOnlyCount(inventory, part.id)
         : reward.id
@@ -64,8 +61,6 @@ export function useRewardInfo() {
       const need = part?.count ?? 1;
       const mastered = item ? (inventory?.xp[item.id] ?? 0) >= item.maxXp : false;
       const itemOwned = item ? (inventory?.owned[item.id] ?? 0) > 0 : false;
-
-      // Gemeistert/im Besitz, aber für eine Akimbo-/Kombi-Waffe noch einmal nötig?
       const parent = item && (mastered || itemOwned) ? neededFor(item) : null;
 
       let status = 'none';
@@ -78,15 +73,14 @@ export function useRewardInfo() {
       else status = 'need';
 
       const setParts = item
-        ? item.components
-            .filter((c) => c.kind === 'part')
-            .map((c) => ({ ...c, have: builtCount(inventory, c.id) + blueprintOnlyCount(inventory, c.id) }))
+        ? item.components.filter((c) => c.kind === 'part').map((c) => ({ ...c, have: builtCount(inventory, c.id) + blueprintOnlyCount(inventory, c.id) }))
         : [];
-
-      return {
+      const out = {
         name,
         plat: priceOf(name),
         ducats: m?.ducats ?? 0,
+        thumb: m?.thumb ?? null,
+        slug: reward.slug ?? null,
         have,
         need,
         status,
@@ -96,8 +90,10 @@ export function useRewardInfo() {
         vaulted: item?.vaulted ?? null,
         setParts,
         setPrice: item ? priceOf(`${item.name} Set`) : null,
-        onTodo: item ? todo.includes(item.id) : false,
+        onTodo: item ? todoIds.includes(item.id) : false,
       };
+      cache.set(name, out);
+      return out;
     };
 
     /** Bestes Teil aus einer Auswahl: was dir für Mastery fehlt, sonst das wertvollste. */
@@ -106,22 +102,15 @@ export function useRewardInfo() {
       return infos.reduce((best, i) => (rank(i) > rank(best) ? i : best), infos[0]);
     };
 
-    const relicById = (id) => relicDb.relics.find((r) => r.id === id) ?? null;
+    const relicById = (id) => relicMap.get(id) ?? null;
 
-    /**
-     * Wie viele Belohnungen eines Relikts sind für dich erledigt (gemeistert / Waffe im Besitz)?
-     * Forma und Nicht-Mastery-Items zählen nicht mit.
-     */
     const relicProgress = (relicId) => {
       const relic = relicById(relicId);
       const infos = (relic?.rewards.intact ?? []).map((w) => info(w.name)).filter((i) => i.status !== 'forma' && i.status !== 'none');
       return { done: infos.filter((i) => i.status === 'mastered' || i.status === 'owned').length, total: infos.length };
     };
 
-    /**
-     * Beste eigene Relikte (optional nur einer Ära), jede Veredelungsstufe einzeln –
-     * sortiert nach erwartetem Platin-Gewinn im Squad.
-     */
+    /** Beste eigene Relikte (optional nur einer Ära), jede Veredelung einzeln, nach erwartetem Platin. */
     const recommend = ({ squad = 4, tier = null, limit = 6 } = {}) => {
       const rows = [];
       let total = 0;
@@ -147,6 +136,6 @@ export function useRewardInfo() {
       return { list: rows.slice(0, limit), total };
     };
 
-    return { ready: true, info, pick, relicById, relicProgress, recommend, priceOf, player: inventory?.player ?? null };
-  }, [data, mastery, inventory, todo]);
+    return { ready: true, info, pick, relicById, relicProgress, recommend, priceOf, relicDb, market, mastery, player: inventory?.player ?? null };
+  });
 }

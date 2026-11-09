@@ -1,143 +1,157 @@
-import { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ArrowDownCircle, CheckCircle2, ExternalLink, Loader2, RefreshCw, X } from 'lucide-react';
-import { openExternal } from '../lib/api.js';
-import { useT } from '../lib/i18n.js';
-import { updates, updatesSupported, useUpdate, formatMb } from '../lib/updates.js';
-import './UpdateNotice.css';
+// Selbst-Update (src-tauri/src/updater.rs): Hinweis in der Titelleiste, „Nach Updates suchen“
+// in den Einstellungen/der Hilfe und das Fenster mit Versionshinweisen + „Jetzt aktualisieren“.
+import { createSignal, Match, Show, Switch } from 'solid-js';
+import { Portal } from 'solid-js/web';
+import { ArrowDownCircle, CheckCircle2, ExternalLink, LoaderCircle, RefreshCw, X } from 'lucide-solid';
+import { call, isTauri, on, openExternal } from '../lib/ipc.js';
+import { t } from '../lib/i18n.js';
+import Markdown from './Markdown.jsx';
+import '../updates.css';
 
-/** Versionshinweise + „Jetzt aktualisieren“ (mit Download-Fortschritt). */
-function UpdateDialog({ state, onClose }) {
-  const t = useT();
-  const [error, setError] = useState(null);
-  const { latest, status, progress } = state;
-  const working = status === 'downloading' || status === 'installing';
-  const pct = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0;
+const [update, setUpdate] = createSignal(null);
+if (isTauri) {
+  call('update_state').then(setUpdate).catch(() => {});
+  on('update-state', setUpdate);
+}
+export { update };
 
+const mb = (b) => `${((b ?? 0) / 1024 / 1024).toFixed(1)} MB`;
+const busy = (s) => s === 'downloading' || s === 'installing';
+
+function UpdateDialog(props) {
+  const [error, setError] = createSignal(null);
+  const s = () => update();
+  const latest = () => s().latest;
+  const pct = () => {
+    const p = s().progress;
+    return p?.total ? Math.min(100, Math.round((p.done / p.total) * 100)) : 0;
+  };
   const install = async () => {
     setError(null);
     try {
-      await updates.install();
+      await call('update_install');
     } catch (e) {
-      setError(String(e.message ?? e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''));
+      setError(e.message ?? String(e));
     }
   };
-
-  // Portal an <body>: in der Titelleiste würde die Zieh-Fläche (app-region: drag) sonst Klicks schlucken
-  return createPortal(
-    <div className="modal-backdrop" onClick={working ? undefined : onClose}>
-      <div className="modal update-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <h3>{t('Update {v} verfügbar', { v: latest.version })}</h3>
-          <button className="icon-btn" onClick={onClose} disabled={working} aria-label={t('Schließen')}>
-            <X size={18} />
-          </button>
-        </div>
-        <p className="muted">
-          {t('Installiert: {v}', { v: state.current })}
-          {latest.small?.size
-            ? ` · ${t('Kleines Update')} ${formatMb(latest.small.size)}`
-            : latest.asset?.size
-              ? ` · ${t('Download')} ${formatMb(latest.asset.size)}`
-              : ''}
-        </p>
-        <h4>{t('Was ist neu?')}</h4>
-        <pre className="update-notes">{latest.notes?.trim() || t('Keine Versionshinweise.')}</pre>
-
-        {status === 'downloading' && (
-          <div className="update-progress">
-            <div className="update-bar">
-              <span style={{ width: `${pct}%` }} />
-            </div>
-            <small className="muted">
-              {t('Lade herunter …')} {formatMb(progress?.done ?? 0)}
-              {progress?.total ? ` / ${formatMb(progress.total)} (${pct} %)` : ''}
-            </small>
+  return (
+    <Portal>
+      <div class="modal-backdrop" onClick={() => !busy(s().status) && props.onClose()}>
+        <div class="modal update-dialog" onClick={(e) => e.stopPropagation()}>
+          <div class="modal-head">
+            <h3>{t('Update {v} verfügbar', { v: latest().version })}</h3>
+            <button class="icon-btn" onClick={props.onClose} disabled={busy(s().status)} aria-label={t('Schließen')}>
+              <X size={18} />
+            </button>
           </div>
-        )}
-        {status === 'installing' && (
-          <p className="update-installing">
-            <Loader2 size={15} className="spin" /> {t('Wird installiert – Cephalon Merlin startet gleich neu …')}
+          <p class="muted">
+            {t('Installiert: {v}', { v: s().current })}
+            <Show when={latest().asset?.size}> · {t('Download')} {mb(latest().asset.size)}</Show>
           </p>
-        )}
-        {(error || state.error) && !working && <p className="err">{error || state.error}</p>}
-        {!state.canInstall && <p className="muted">{t('Aktualisieren geht nur in der portablen .exe – lade die neue Version sonst von GitHub.')}</p>}
-
-        <div className="update-actions">
-          {latest.url && (
-            <button className="btn" onClick={() => openExternal(latest.url)}>
-              <ExternalLink size={15} /> {t('Auf GitHub ansehen')}
-            </button>
-          )}
-          {state.canInstall && (
-            <button className="btn btn-primary" onClick={install} disabled={working}>
-              {working ? <Loader2 size={15} className="spin" /> : <ArrowDownCircle size={15} />} {t('Jetzt aktualisieren')}
-            </button>
-          )}
+          <h4>{t('Was ist neu?')}</h4>
+          <div class="update-notes">
+            <Show when={latest().notes?.trim()} fallback={t('Keine Versionshinweise.')}>
+              <Markdown text={latest().notes} />
+            </Show>
+          </div>
+          <Show when={s().status === 'downloading'}>
+            <div class="update-progress">
+              <div class="update-bar">
+                <span style={{ width: `${pct()}%` }} />
+              </div>
+              <small class="muted">
+                {t('Lade herunter …')} {mb(s().progress?.done)}
+                <Show when={s().progress?.total}> / {mb(s().progress.total)} ({pct()} %)</Show>
+              </small>
+            </div>
+          </Show>
+          <Show when={s().status === 'installing'}>
+            <p class="update-installing">
+              <LoaderCircle size={15} class="spin" /> {t('Wird installiert – Cephalon Merlin startet gleich neu …')}
+            </p>
+          </Show>
+          <Show when={(error() || s().error) && !busy(s().status)}>
+            <p class="err">{error() || s().error}</p>
+          </Show>
+          <Show when={!s().canInstall}>
+            <p class="muted">{t('Aktualisieren geht nur in der fertigen .exe (nicht in der Preview) – lade die neue Version sonst von GitHub.')}</p>
+          </Show>
+          <div class="update-actions">
+            <Show when={latest().url}>
+              <button class="btn" onClick={() => openExternal(latest().url)}>
+                <ExternalLink size={15} /> {t('Auf GitHub ansehen')}
+              </button>
+            </Show>
+            <Show when={s().canInstall}>
+              <button class="btn btn-primary" onClick={install} disabled={busy(s().status)}>
+                {busy(s().status) ? <LoaderCircle size={15} class="spin" /> : <ArrowDownCircle size={15} />} {t('Jetzt aktualisieren')}
+              </button>
+            </Show>
+          </div>
         </div>
       </div>
-    </div>,
-    document.body,
+    </Portal>
   );
 }
 
 /** Dezenter Hinweis in der Titelleiste, nur wenn ein Update bereitliegt. */
 export function UpdateBadge() {
-  const t = useT();
-  const state = useUpdate();
-  const [open, setOpen] = useState(false);
-  const show = state?.latest && ['available', 'downloading', 'installing'].includes(state.status);
-  if (!show) return null;
+  const [open, setOpen] = createSignal(false);
+  const show = () => update()?.latest && ['available', 'downloading', 'installing'].includes(update().status);
   return (
-    <>
-      <button className="badge badge-update" onClick={() => setOpen(true)} title={t('Versionshinweise und Aktualisieren')}>
-        <ArrowDownCircle size={13} /> {t('Update {v}', { v: state.latest.version })}
+    <Show when={show()}>
+      <button class="badge badge-update" onClick={() => setOpen(true)} title={t('Versionshinweise und Aktualisieren')}>
+        <ArrowDownCircle size={13} /> {t('Update {v}', { v: update().latest.version })}
       </button>
-      {open && <UpdateDialog state={state} onClose={() => setOpen(false)} />}
-    </>
+      <Show when={open()}>
+        <UpdateDialog onClose={() => setOpen(false)} />
+      </Show>
+    </Show>
   );
 }
 
-/** „Nach Updates suchen“ mit Ergebnis (Hilfe/Info). */
+/** „Nach Updates suchen“ mit Ergebnis. */
 export function UpdateCheck() {
-  const t = useT();
-  const state = useUpdate();
-  const [open, setOpen] = useState(false);
-  const [checked, setChecked] = useState(false);
-  if (!updatesSupported) return null;
-
-  const status = state?.status;
+  const [open, setOpen] = createSignal(false);
+  const [checked, setChecked] = createSignal(false);
+  const s = () => update();
+  const status = () => s()?.status;
   const check = async () => {
     setChecked(true);
-    const s = await updates.check().catch(() => null);
-    // Update gefunden → gleich das Fenster mit „Jetzt aktualisieren“ zeigen
-    if (s?.status === 'available' && s.latest) setOpen(true);
+    const r = await call('update_check').catch(() => null);
+    if (r?.status === 'available' && r.latest) setOpen(true);
   };
-
-  let result = null;
-  if (status === 'checking') result = <span className="muted"><Loader2 size={14} className="spin" /> {t('Suche nach Updates …')}</span>;
-  else if (status === 'off') result = <span className="muted">{t('Update-Prüfung ist aus (kein GitHub-Repository eingestellt).')}</span>;
-  else if (['available', 'downloading', 'installing'].includes(status) && state.latest)
-    result = (
-      <button className="link-btn" onClick={() => setOpen(true)}>
-        <ArrowDownCircle size={14} /> {t('Update {v} verfügbar – Details', { v: state.latest.version })}
-      </button>
-    );
-  else if (status === 'error') result = <span className="err">{state.error}</span>;
-  else if (status === 'none' && state.noRelease)
-    result = <span className="muted">{t('Noch keine Version auf GitHub veröffentlicht.')}</span>;
-  else if (status === 'none' && state.latest?.newer && !state.latest.asset)
-    result = <span className="muted">{t('Version {v} ist erschienen, enthält aber keine .exe.', { v: state.latest.version })}</span>;
-  else if (status === 'none' && (checked || state.checkedAt))
-    result = <span className="ok"><CheckCircle2 size={14} /> {t('Du hast die neueste Version ({v}).', { v: state.current })}</span>;
-
   return (
-    <div className="update-check">
-      <button className="btn" onClick={check} disabled={status === 'checking' || status === 'downloading' || status === 'installing'}>
-        {status === 'checking' ? <Loader2 size={15} className="spin" /> : <RefreshCw size={15} />} {t('Nach Updates suchen')}
-      </button>
-      {result}
-      {open && state?.latest && <UpdateDialog state={state} onClose={() => setOpen(false)} />}
-    </div>
+    <Show when={isTauri && s()}>
+      <div class="update-check">
+        <button class="btn" onClick={check} disabled={status() === 'checking' || busy(status())}>
+          {status() === 'checking' ? <LoaderCircle size={15} class="spin" /> : <RefreshCw size={15} />} {t('Nach Updates suchen')}
+        </button>
+        <Switch>
+          <Match when={status() === 'checking'}>
+            <span class="muted">{t('Suche nach Updates …')}</span>
+          </Match>
+          <Match when={['available', 'downloading', 'installing'].includes(status()) && s().latest}>
+            <button class="link-btn" onClick={() => setOpen(true)}>
+              <ArrowDownCircle size={14} /> {t('Update {v} verfügbar – Details', { v: s().latest.version })}
+            </button>
+          </Match>
+          <Match when={status() === 'error'}>
+            <span class="err">{s().error}</span>
+          </Match>
+          <Match when={status() === 'none' && s().noRelease && (checked() || s().checkedAt)}>
+            <span class="muted">{t('Noch keine Rust-Version auf GitHub veröffentlicht.')}</span>
+          </Match>
+          <Match when={status() === 'none' && (checked() || s().checkedAt)}>
+            <span class="ok">
+              <CheckCircle2 size={14} /> {t('Du hast die neueste Version ({v}).', { v: s().current })}
+            </span>
+          </Match>
+        </Switch>
+        <Show when={open() && s()?.latest}>
+          <UpdateDialog onClose={() => setOpen(false)} />
+        </Show>
+      </div>
+    </Show>
   );
 }

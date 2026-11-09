@@ -1,21 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Infinity as All, PersonStanding, Crosshair, Target, Sword, Plane, PawPrint, Bot,
-  Search, Filter, Check, Archive, ArchiveRestore, BadgeCheck, Trash2, RotateCcw,
-} from 'lucide-react';
-import { useMasteryDb } from '../lib/masteryDb.js';
-import { useGameData, builtCount, blueprintOnlyCount } from '../lib/GameData.jsx';
-import { getBulkPrices, getItems, load, save } from '../lib/api.js';
-import { evaluate } from '../lib/evaluate.js';
-import { useTodo } from '../lib/todo.js';
-import { useSettings, isFounders } from '../lib/settings.js';
-import { compact } from '../lib/format.js';
-import { Plat, Ducat } from './Icons.jsx';
-import TodoStar from './TodoStar.jsx';
-import { useT } from '../lib/i18n.js';
-
 // Auswahl im AlecaFrame-Stil: Kategorie-Leiste oben, darunter Karten mit Bild und Bauteilen.
 // Wird im Markt (Klick = Angebote) und in der Foundry (Klick = Bauplan) benutzt.
+import { createMemo, createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
+import { Infinity as All, PersonStanding, Crosshair, Target, Sword, Plane, PawPrint, Bot, Filter, Check, Archive, ArchiveRestore, BadgeCheck, RotateCcw } from 'lucide-solid';
+import { loadMasteryDb, loadBulkPrices, builtCount, blueprintOnlyCount, evaluate, todo, compact } from '../lib/gamedb.js';
+import { getItems } from '../lib/market.js';
+import { game } from '../lib/game.js';
+import { settings, isFounders } from '../lib/settings.js';
+import { load, save } from '../lib/ipc.js';
+import { Plat, Ducat } from './Icons.jsx';
+import TodoStar from './TodoStar.jsx';
+import HoverSearch from './HoverSearch.jsx';
+import { t } from '../lib/i18n.js';
 
 const TABS = [
   { id: 'all', label: 'Alle', icon: All, cats: null },
@@ -28,8 +24,7 @@ const TABS = [
   { id: 'petweapons', label: 'Begleiter-Waffen', icon: Bot, cats: ['Begleiter-Waffen'] },
 ];
 
-// Filter-Gruppen wie bei AlecaFrame: je zwei Knöpfe, ein zweiter Klick hebt die Auswahl auf.
-// test(item, s) gilt für den ersten Knopf, der zweite ist das Gegenteil.
+// Filter-Gruppen: je zwei Knöpfe, ein zweiter Klick hebt die Auswahl auf.
 const GROUPS = [
   { id: 'type', title: 'Typ', labels: ['Prime', 'Normal'], test: (it) => it.isPrime },
   { id: 'mastery', title: 'Mastery', labels: ['Gemeistert', 'Nicht gemeistert'], test: (it, s) => s.xp >= it.maxXp },
@@ -40,113 +35,100 @@ const GROUPS = [
   { id: 'crafting', title: 'Wird für anderes gebraucht', test: (it, s) => s.usedIn.has(it.id) },
   { id: 'fav', title: 'Favorit (Stern)', test: (it, s) => s.todo.has(it.id) },
 ];
-
 const PAGE = 48;
-const TRADE_KEY = 'td.market.tradeOnly.v1';
 
-/** Suchfeld, das nur beim Drüberfahren (oder beim Tippen) aufklappt. */
-export function HoverSearch({ value, onChange }) {
-  const t = useT();
+function FilterPanel(props) {
+  let ref;
+  const onDown = (e) => !ref?.parentElement.contains(e.target) && props.onClose();
+  onMount(() => window.addEventListener('mousedown', onDown));
+  onCleanup(() => window.removeEventListener('mousedown', onDown));
+  const pick = (id, v) => {
+    const next = { ...props.filters };
+    if (next[id] === v) delete next[id];
+    else next[id] = v;
+    props.setFilters(next);
+  };
   return (
-    <div className={`gb-searchbox ${value ? 'has-value' : ''}`}>
-      <Search size={17} className="gb-search-ico" />
-      <input placeholder={t('Suchen')} value={value} onChange={(e) => onChange(e.target.value)} />
-      {value && (
-        <button className="gb-search-clear" onClick={() => onChange('')} title={t('Suche leeren')}>
-          <Trash2 size={15} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function FilterPanel({ filters, setFilters, onClose }) {
-  const ref = useRef(null);
-  const t = useT();
-  useEffect(() => {
-    // Klick außerhalb (auch nicht auf den Filter-Knopf) schließt das Fenster
-    const onDown = (e) => !ref.current?.parentElement.contains(e.target) && onClose();
-    window.addEventListener('mousedown', onDown);
-    return () => window.removeEventListener('mousedown', onDown);
-  }, [onClose]);
-  const pick = (id, v) =>
-    setFilters((f) => {
-      const next = { ...f };
-      if (next[id] === v) delete next[id];
-      else next[id] = v;
-      return next;
-    });
-  return (
-    <div className="gb-filters" ref={ref}>
-      {GROUPS.map((g) => (
-        <div key={g.id} className="gb-fgroup">
-          <b>{t(g.title)}</b>
-          <div>
-            {[true, false].map((v, i) => (
-              <button key={i} className={filters[g.id] === v ? 'on' : ''} onClick={() => pick(g.id, v)}>
-                {t((g.labels ?? ['Ja', 'Nein'])[i])}
-              </button>
-            ))}
+    <div class="gb-filters" ref={ref}>
+      <For each={GROUPS}>
+        {(g) => (
+          <div class="gb-fgroup">
+            <b>{t(g.title)}</b>
+            <div>
+              <For each={[true, false]}>
+                {(v, i) => (
+                  <button classList={{ on: props.filters[g.id] === v }} onClick={() => pick(g.id, v)}>
+                    {t((g.labels ?? ['Ja', 'Nein'])[i()])}
+                  </button>
+                )}
+              </For>
+            </div>
           </div>
-        </div>
-      ))}
-      <button className="gb-freset" onClick={() => setFilters({})}>
+        )}
+      </For>
+      <button class="gb-freset" onClick={() => props.setFilters({})}>
         <RotateCcw size={13} /> {t('Alle Filter zurücksetzen')}
       </button>
     </div>
   );
 }
 
-function PartCircle({ part, inv, onPick }) {
-  const t = useT();
-  const isResource = part.kind === 'resource';
-  const have = isResource ? builtCount(inv, part.id) : builtCount(inv, part.id) + blueprintOnlyCount(inv, part.id);
-  const enough = have >= part.count;
-  const tradeable = !isResource && part.ducats > 0;
+function PartCircle(props) {
+  const p = props.part;
+  const isResource = p.kind === 'resource';
+  const have = () => (isResource ? builtCount(game.inventory, p.id) : builtCount(game.inventory, p.id) + blueprintOnlyCount(game.inventory, p.id));
+  const tradeable = !isResource && p.ducats > 0;
   return (
     <button
-      className={`gb-part ${have > 0 ? (enough ? 'ok' : 'some') : ''} ${tradeable ? 'prime' : ''}`}
-      title={`${part.name}${part.count > 1 ? ` ×${part.count}` : ''} – ${t('vorhanden: {n}', { n: have })}${tradeable ? ` ${t('(handelbar)')}` : ''}`}
+      class="gb-part"
+      classList={{ ok: have() > 0 && have() >= p.count, some: have() > 0 && have() < p.count, prime: tradeable }}
+      title={`${p.name}${p.count > 1 ? ` ×${p.count}` : ''} – ${t('vorhanden: {n}', { n: have() })}${tradeable ? ` ${t('(handelbar)')}` : ''}`}
       onClick={(e) => {
         e.stopPropagation();
-        onPick(part);
+        props.onPick(p);
       }}
     >
-      {part.image ? <img src={part.image} alt="" loading="lazy" /> : <span className="gb-part-txt">{part.name.slice(0, 2)}</span>}
-      {have > 0 && <i className="gb-count">{compact(have)}</i>}
-      {tradeable && (
-        <i className="gb-ducat">
+      {p.image ? <img src={p.image} alt="" loading="lazy" /> : <span class="gb-part-txt">{p.name.slice(0, 2)}</span>}
+      <Show when={have() > 0}>
+        <i class="gb-count">{compact(have())}</i>
+      </Show>
+      <Show when={tradeable}>
+        <i class="gb-ducat">
           <Ducat size={10} />
         </i>
-      )}
+      </Show>
     </button>
   );
 }
 
-function GearCard({ item, inv, price, onPick, onPickPart }) {
-  const owned = (inv?.owned[item.id] ?? 0) > 0;
-  const mastered = (inv?.xp[item.id] ?? 0) >= item.maxXp;
-  const parts = item.components.slice(0, 6);
+function GearCard(props) {
+  const it = props.item;
+  const owned = () => (game.inventory?.owned[it.id] ?? 0) > 0;
+  const mastered = () => (game.inventory?.xp[it.id] ?? 0) >= it.maxXp;
   return (
-    <div className={`gb-card ${owned ? 'owned' : ''}`} onClick={() => onPick(item)} role="button" tabIndex={0}>
-      <div className="gb-head">
+    <div class="gb-card" classList={{ owned: owned() }} onClick={() => props.onPick(it)} role="button" tabIndex={0}>
+      <div class="gb-head">
         <span onClick={(e) => e.stopPropagation()}>
-          <TodoStar id={item.id} size={16} />
+          <TodoStar id={it.id} size={16} />
         </span>
-        <b>{item.name}</b>
-        {mastered && <BadgeCheck size={17} className="gb-mastered" aria-label="Gemeistert" />}
+        <b>{it.name}</b>
+        <Show when={mastered()}>
+          <BadgeCheck size={17} class="gb-mastered" />
+        </Show>
       </div>
-      <div className="gb-body">
-        <div className="gb-img">{item.image && <img src={item.image} alt="" loading="lazy" />}</div>
-        <div className="gb-parts">
-          {parts.map((p) => (
-            <PartCircle key={p.id} part={p} inv={inv} onPick={(part) => onPickPart(item, part)} />
-          ))}
+      <div class="gb-body">
+        <div class="gb-img">
+          <Show when={it.image}>
+            <img src={it.image} alt="" loading="lazy" />
+          </Show>
+        </div>
+        <div class="gb-parts">
+          <For each={it.components.slice(0, 6)}>{(p) => <PartCircle part={p} onPick={(part) => props.onPickPart(it, part)} />}</For>
         </div>
       </div>
-      <div className="gb-foot">
-        {item.isPrime &&
-          (item.vaulted ? (
+      <div class="gb-foot">
+        <Show when={it.isPrime}>
+          {it.vaulted ? (
             <span>
               <Archive size={14} /> Vaulted
             </span>
@@ -154,148 +136,132 @@ function GearCard({ item, inv, price, onPick, onPickPart }) {
             <span>
               <ArchiveRestore size={14} /> Unvaulted
             </span>
-          ))}
-        {owned && (
-          <span className="gb-owned">
+          )}
+        </Show>
+        <Show when={owned()}>
+          <span class="gb-owned">
             <Check size={13} /> Owned
           </span>
-        )}
-        {price > 0 && (
-          <span className="gb-price">
-            {Math.round(price)} <Plat size={12} />
+        </Show>
+        <Show when={props.price > 0}>
+          <span class="gb-price">
+            {Math.round(props.price)} <Plat size={12} />
           </span>
-        )}
-        {item.category !== 'Warframes' && item.masteryReq > 0 && (
+        </Show>
+        <Show when={it.category !== 'Warframes' && it.masteryReq > 0}>
           <span>
-            MR: <b>{item.masteryReq}</b>
+            MR: <b>{it.masteryReq}</b>
           </span>
-        )}
+        </Show>
       </div>
     </div>
   );
 }
 
-/**
- * @param mode   'market' (mit Haken "Nur kaufbare") oder 'foundry'
- * @param onPick(item)            Karte angeklickt
- * @param onPickPart(item, part)  Bauteil angeklickt
- */
-export default function GearBrowser({ mode = 'market', onPick, onPickPart }) {
-  const { db, error } = useMasteryDb();
-  const { inventory: inv } = useGameData();
-  const todoList = useTodo();
-  const { hideFounders } = useSettings();
-  const tr = useT(); // "t" ist unten die Laufvariable der Reiter
-  const [tab, setTab] = useState(() => load(`td.${mode}.tab`, 'all'));
-  const [filters, setFilters] = useState(() => load(`td.${mode}.filters.v1`, {}));
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [limit, setLimit] = useState(PAGE);
-  const [prices, setPrices] = useState({});
-  const [tradeOnly, setTradeOnly] = useState(() => load(TRADE_KEY, false));
-  const [market, setMarket] = useState(null); // { names, refs } aller warframe.market-Items
+/** mode: 'market' (mit Haken "Nur kaufbare") oder 'foundry' */
+export default function GearBrowser(props) {
+  const mode = props.mode ?? 'market';
+  const [db] = createResource(() => loadMasteryDb());
+  const [prices] = createResource(() => loadBulkPrices().catch(() => ({})));
+  const [market] = createResource(() =>
+    mode === 'market'
+      ? getItems()
+          .then((items) => ({ names: new Set(items.map((i) => i.name.toLowerCase())), refs: new Set(items.map((i) => i.gameRef).filter(Boolean)) }))
+          .catch(() => null)
+      : null,
+  );
+  const [tab, setTabS] = createSignal(load(`cm.${mode}.tab`, 'all'));
+  const [filters, setFiltersS] = createSignal(load(`cm.${mode}.filters.v1`, {}));
+  const [filterOpen, setFilterOpen] = createSignal(false);
+  const [query, setQuery] = createSignal('');
+  const [limit, setLimit] = createSignal(PAGE);
+  const [tradeOnly, setTradeOnlyS] = createSignal(load('cm.market.tradeOnly.v1', false));
+  const setTab = (v) => (setTabS(v), save(`cm.${mode}.tab`, v), setLimit(PAGE));
+  const setFilters = (v) => (setFiltersS(v), save(`cm.${mode}.filters.v1`, v), setLimit(PAGE));
+  const setTradeOnly = (v) => (setTradeOnlyS(v), save('cm.market.tradeOnly.v1', v), setLimit(PAGE));
 
-  useEffect(() => {
-    getBulkPrices().then(setPrices).catch(() => {});
-    if (mode !== 'market') return;
-    getItems()
-      .then((items) => setMarket({ names: new Set(items.map((i) => i.name.toLowerCase())), refs: new Set(items.map((i) => i.gameRef).filter(Boolean)) }))
-      .catch(() => {});
-  }, [mode]);
-  useEffect(() => setLimit(PAGE), [tab, filters, query, tradeOnly]);
-  useEffect(() => save(`td.${mode}.tab`, tab), [mode, tab]);
-  useEffect(() => save(`td.${mode}.filters.v1`, filters), [mode, filters]);
-
-  // Kaufbar = es gibt das Set oder das Item selbst auf warframe.market
-  const tradeable = (it) =>
-    !market || market.names.has(`${it.name} set`.toLowerCase()) || market.names.has(it.name.toLowerCase()) || market.refs.has(it.id);
-  const toggleTradeOnly = (on) => {
-    setTradeOnly(on);
-    save(TRADE_KEY, on);
+  const tradeable = (it) => {
+    const m = market();
+    return !m || m.names.has(`${it.name} set`.toLowerCase()) || m.names.has(it.name.toLowerCase()) || m.refs.has(it.id);
   };
-
-  // Items, die als Bauteil in anderen stecken (Bolto für Akbolto …)
-  const usedIn = useMemo(() => new Set(db?.items.flatMap((it) => it.components.map((c) => c.id)) ?? []), [db]);
-  const activeFilters = Object.entries(filters);
-
-  const list = useMemo(() => {
-    if (!db) return [];
-    const cats = TABS.find((t) => t.id === tab)?.cats;
-    const q = query.trim().toLowerCase();
-    const todo = new Set(todoList);
+  const usedIn = createMemo(() => new Set(db()?.items.flatMap((it) => it.components.map((c) => c.id)) ?? []));
+  const list = createMemo(() => {
+    const d = db();
+    if (!d) return [];
+    const inv = game.inventory;
+    const cats = TABS.find((x) => x.id === tab())?.cats;
+    const q = query().trim().toLowerCase();
+    const todoSet = new Set(todo());
     const mr = inv?.player.mr ?? 0;
-    return db.items
+    const active = Object.entries(filters());
+    return d.items
       .filter((it) => !cats || cats.includes(it.category))
       .filter((it) => !q || it.name.toLowerCase().includes(q))
-      .filter((it) => !hideFounders || !isFounders(it) || (inv?.owned[it.id] ?? 0) > 0)
+      .filter((it) => !settings.hideFounders || !isFounders(it) || (inv?.owned[it.id] ?? 0) > 0)
       .filter((it) => {
-        if (!activeFilters.length) return true;
+        if (!active.length) return true;
         let status;
-        const s = {
-          owned: (inv?.owned[it.id] ?? 0) > 0,
-          xp: inv?.xp[it.id] ?? 0,
-          mr,
-          usedIn,
-          todo,
-          status: () => (status ??= evaluate(it, inv).status),
-        };
-        return activeFilters.every(([id, want]) => GROUPS.find((g) => g.id === id)?.test(it, s) === want);
+        const s = { owned: (inv?.owned[it.id] ?? 0) > 0, xp: inv?.xp[it.id] ?? 0, mr, usedIn: usedIn(), todo: todoSet, status: () => (status ??= evaluate(it, inv).status) };
+        return active.every(([id, want]) => GROUPS.find((g) => g.id === id)?.test(it, s) === want);
       })
-      .filter((it) => mode !== 'market' || !tradeOnly || tradeable(it))
+      .filter((it) => mode !== 'market' || !tradeOnly() || tradeable(it))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [db, tab, filters, query, inv, tradeOnly, market, todoList, usedIn, hideFounders]);
-
-  if (error) return <p className="err">{error}</p>;
-  if (!db) return <div className="empty">{tr('Lade Item-Datenbank …')}</div>;
+  });
 
   return (
-    <div className="gb">
-      <div className="gb-bar">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = t.id === tab;
-          return (
-            <button key={t.id} className={`gb-tab ${active ? 'active' : ''}`} onClick={() => setTab(t.id)} title={tr(t.label)}>
-              <Icon size={17} />
-              {active && <span>{tr(t.label)}</span>}
-            </button>
-          );
-        })}
-        <div className="gb-spacer" />
-        {mode === 'market' && (
-          <label className="gb-check" title={tr('Items ausblenden, die es auf warframe.market nicht gibt')}>
-            <input type="checkbox" checked={tradeOnly} onChange={(e) => toggleTradeOnly(e.target.checked)} />
-            {tr('Nur kaufbare')}
-          </label>
-        )}
-        <HoverSearch value={query} onChange={setQuery} />
-        <div className="gb-filterwrap">
-          <button className={`gb-tab ${activeFilters.length ? 'active' : ''}`} onClick={() => setFilterOpen((o) => !o)} title={tr('Filter')}>
-            <Filter size={17} />
-            {activeFilters.length > 0 && <span>{activeFilters.length}</span>}
-          </button>
-          {filterOpen && <FilterPanel filters={filters} setFilters={setFilters} onClose={() => setFilterOpen(false)} />}
-        </div>
-      </div>
-
-      {list.length === 0 && <div className="empty">{tr('Nichts gefunden.')}</div>}
-      <div className="gb-grid">
-        {list.slice(0, limit).map((it) => (
-          <GearCard
-            key={it.id}
-            item={it}
-            inv={inv}
-            price={it.isPrime ? prices[`${it.name} set`.toLowerCase()] : 0}
-            onPick={onPick}
-            onPickPart={onPickPart}
+    <Show when={db()} fallback={db.error ? <p class="err">{db.error.message}</p> : <div class="empty">{t('Lade Item-Datenbank …')}</div>}>
+      <div class="gb">
+        <div class="gb-bar">
+          <For each={TABS}>
+            {(x) => (
+              <button class="gb-tab" classList={{ active: x.id === tab() }} onClick={() => setTab(x.id)} title={t(x.label)}>
+                <Dynamic component={x.icon} size={17} />
+                <Show when={x.id === tab()}>
+                  <span>{t(x.label)}</span>
+                </Show>
+              </button>
+            )}
+          </For>
+          <div class="gb-spacer" />
+          <Show when={mode === 'market'}>
+            <label class="gb-check" title={t('Items ausblenden, die es auf warframe.market nicht gibt')}>
+              <input type="checkbox" checked={tradeOnly()} onChange={(e) => setTradeOnly(e.currentTarget.checked)} />
+              {t('Nur kaufbare')}
+            </label>
+          </Show>
+          <HoverSearch
+            value={query()}
+            onChange={(v) => {
+              setQuery(v);
+              setLimit(PAGE);
+            }}
           />
-        ))}
+          <div class="gb-filterwrap">
+            <button class="gb-tab" classList={{ active: Object.keys(filters()).length > 0 }} onClick={() => setFilterOpen((o) => !o)} title={t('Filter')}>
+              <Filter size={17} />
+              <Show when={Object.keys(filters()).length > 0}>
+                <span>{Object.keys(filters()).length}</span>
+              </Show>
+            </button>
+            <Show when={filterOpen()}>
+              <FilterPanel filters={filters()} setFilters={setFilters} onClose={() => setFilterOpen(false)} />
+            </Show>
+          </div>
+        </div>
+        <Show when={list().length === 0}>
+          <div class="empty">{t('Nichts gefunden.')}</div>
+        </Show>
+        <div class="gb-grid">
+          <For each={list().slice(0, limit())}>
+            {(it) => <GearCard item={it} price={it.isPrime ? (prices() ?? {})[`${it.name} set`.toLowerCase()] : 0} onPick={props.onPick} onPickPart={props.onPickPart} />}
+          </For>
+        </div>
+        <Show when={list().length > limit()}>
+          <button class="btn gb-more" onClick={() => setLimit((l) => l + PAGE * 2)}>
+            {t('Mehr anzeigen ({n} weitere)', { n: list().length - limit() })}
+          </button>
+        </Show>
       </div>
-      {list.length > limit && (
-        <button className="btn gb-more" onClick={() => setLimit((l) => l + PAGE * 2)}>
-          {tr('Mehr anzeigen ({n} weitere)', { n: list.length - limit })}
-        </button>
-      )}
-    </div>
+    </Show>
   );
 }

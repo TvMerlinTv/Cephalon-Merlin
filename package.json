@@ -1,58 +1,30 @@
 {
-  "name": "tennodeck",
+  "name": "cephalon-merlin-rs",
   "productName": "Cephalon Merlin",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Warframe Companion (Inventar, Timer, warframe.market) â€“ Electron + React",
+  "description": "Warframe companion – Rust + Tauri 2 + SolidJS",
   "author": "TvMerlinTv",
-  "main": "electron/boot.cjs",
-  "updateRepo": "TvMerlinTv/cephalon-merlin",
+  "license": "MIT",
   "scripts": {
-    "dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:5173 && electron . --dev\"",
-    "web": "vite",
+    "dev": "vite",
     "build": "vite build",
-    "start": "vite build && electron .",
-    "dist": "vite build && electron-builder --win portable",
-    "preview": "vite build && node build/preview.cjs",
-    "release": "node build/release.cjs"
+    "tauri": "tauri",
+    "app": "tauri dev",
+    "preview": "node scripts/preview.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.4",
+    "lucide-solid": "^0.460.0",
+    "solid-js": "1.9.18"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.3",
-    "concurrently": "^9.0.1",
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8",
-    "lucide-react": "^0.460.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "@tauri-apps/cli": "2.12.4",
     "vite": "^5.4.10",
-    "wait-on": "^8.0.1"
-  },
-  "build": {
-    "appId": "de.tvmerlintv.tennodeck",
-    "productName": "Cephalon Merlin",
-    "directories": {
-      "output": "release",
-      "buildResources": "build"
-    },
-    "files": [
-      "dist/**",
-      "electron/**",
-      "package.json"
-    ],
-    "asarUnpack": [
-      "electron/*.ps1"
-    ],
-    "win": {
-      "icon": "build/icon.png",
-      "target": "portable"
-    },
-    "portable": {
-      "artifactName": "Cephalon Merlin.exe"
-    }
+    "vite-plugin-solid": "2.11.15"
   },
   "allowScripts": {
-    "electron@33.4.11": true,
     "esbuild@0.21.5": true
   }
 }

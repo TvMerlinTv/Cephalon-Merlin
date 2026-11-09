@@ -1,27 +1,23 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+// Builds von overframe.gg: suchen, Mods und Guide ansehen, Favoriten merken, Builds mit Checkliste verfolgen.
+import { createEffect, createMemo, createResource, createSignal, For, Match, on, onCleanup, onMount, Show, Switch } from 'solid-js';
 import {
-  Search, X, ThumbsUp, User, Clock, ExternalLink, Loader2, RefreshCw, History, Backpack, MessageSquare, ArrowDownUp, WifiOff,
-  ShieldAlert, Wrench, Star, Target, CheckCircle2, Trash2, Search as SearchIcon,
-} from 'lucide-react';
-import { openExternal } from '../lib/api.js';
-import { useMasteryDb } from '../lib/masteryDb.js';
-import { useGameData } from '../lib/GameData.jsx';
-import { useSettings } from '../lib/settings.js';
-import { useT } from '../lib/i18n.js';
-import { compact } from '../lib/format.js';
+  Search, X, ThumbsUp, User, Clock, ExternalLink, LoaderCircle, RefreshCw, History, Backpack, MessageSquare, ArrowDownUp, WifiOff,
+  ShieldAlert, Wrench, Star, Target, CircleCheck, Trash2,
+} from 'lucide-solid';
+import { openExternal, load, save } from '../lib/ipc.js';
+import { loadMasteryDb, compact } from '../lib/gamedb.js';
+import { game } from '../lib/game.js';
+import { settings } from '../lib/settings.js';
+import { t } from '../lib/i18n.js';
 import { Plat } from '../components/Icons.jsx';
 import Markdown from '../components/Markdown.jsx';
 import BuildMods, { loadData } from '../components/BuildMods.jsx';
 import BuildChecklist, { buildProgress } from '../components/BuildChecklist.jsx';
-import { useSavedBuilds, toggleFavorite, toggleActive, removeDone, snapshot } from '../lib/savedBuilds.js';
-import { load, save } from '../lib/api.js';
-import {
-  OVERFRAME, getBuilds, getBuild, buildsErrorKind, loadRecent, pushRecent, loadSelectedItem, saveSelectedItem,
-} from '../lib/builds.js';
+import { saved, toggleFavorite, toggleActive, removeDone, snapshot } from '../lib/savedBuilds.js';
+import { OVERFRAME, getBuilds, getBuild, buildsErrorKind, loadRecent, pushRecent, loadSelectedItem, saveSelectedItem } from '../lib/builds.js';
 import './builds.css';
 
 const GEAR_CATEGORIES = ['Warframes', 'Primär', 'Sekundär', 'Nahkampf', 'Begleiter', 'Begleiter-Waffen', 'Archwing', 'Arch-Gun', 'Arch-Melee'];
-
 const ERROR_TEXT = {
   offline: 'Keine Verbindung zu overframe.gg – bist du online?',
   blocked: 'overframe.gg blockiert die Anfrage gerade (Cloudflare-Schutz). Versuch es später noch einmal oder öffne die Seite im Browser.',
@@ -30,571 +26,552 @@ const ERROR_TEXT = {
   other: 'Builds konnten nicht geladen werden.',
 };
 
-function relTime(iso, language) {
+function relTime(iso) {
   const diff = (new Date(iso).getTime() - Date.now()) / 1000;
-  const rtf = new Intl.RelativeTimeFormat(language === 'de' ? 'de' : 'en', { numeric: 'auto' });
-  const steps = [
-    ['year', 365 * 86400],
-    ['month', 30 * 86400],
-    ['week', 7 * 86400],
-    ['day', 86400],
-    ['hour', 3600],
-    ['minute', 60],
-  ];
-  for (const [unit, sec] of steps) if (Math.abs(diff) >= sec) return rtf.format(Math.round(diff / sec), unit);
+  const rtf = new Intl.RelativeTimeFormat(settings.language === 'de' ? 'de' : 'en', { numeric: 'auto' });
+  for (const [unit, sec] of [['year', 365 * 86400], ['month', 30 * 86400], ['week', 7 * 86400], ['day', 86400], ['hour', 3600], ['minute', 60]])
+    if (Math.abs(diff) >= sec) return rtf.format(Math.round(diff / sec), unit);
   return rtf.format(0, 'minute');
 }
-const fullDate = (iso, language) => new Date(iso).toLocaleDateString(language === 'de' ? 'de-DE' : 'en-GB', { dateStyle: 'medium' });
-
+const fullDate = (iso) => new Date(iso).toLocaleDateString(settings.language === 'de' ? 'de-DE' : 'en-GB', { dateStyle: 'medium' });
 const slugOf = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-function itemFromUrl(url, items) {
+const itemFromUrl = (url, items) => {
   const slug = url?.split('/')[3];
   return slug ? items.find((i) => slugOf(i.name) === slug) ?? null : null;
-}
+};
 
-function ItemIcon({ src, size = 28 }) {
-  const [broken, setBroken] = useState(false);
-  if (!src || broken) return <span className="bld-ico-empty" style={{ width: size, height: size }} />;
-  return <img src={src} alt="" width={size} height={size} loading="lazy" onError={() => setBroken(true)} />;
-}
-
-function ErrorBox({ error, onRetry, overframeUrl }) {
-  const t = useT();
-  const kind = buildsErrorKind(error);
-  const Icon = kind === 'offline' ? WifiOff : ShieldAlert;
+function ItemIcon(props) {
+  const [broken, setBroken] = createSignal(false);
+  const size = () => props.size ?? 28;
   return (
-    <div className="empty bld-error">
-      <Icon size={30} />
+    <Show when={props.src && !broken()} fallback={<span class="bld-ico-empty" style={{ width: `${size()}px`, height: `${size()}px` }} />}>
+      <img src={props.src} alt="" width={size()} height={size()} loading="lazy" onError={() => setBroken(true)} />
+    </Show>
+  );
+}
+
+function ErrorBox(props) {
+  const kind = buildsErrorKind(props.error);
+  return (
+    <div class="empty bld-error">
+      {kind === 'offline' ? <WifiOff size={30} /> : <ShieldAlert size={30} />}
       <p>{t(ERROR_TEXT[kind])}</p>
-      {kind === 'other' && <p className="small">{error?.message}</p>}
-      <div className="empty-actions">
-        <button className="btn" onClick={onRetry}>
+      <Show when={kind === 'other'}>
+        <p class="small">{props.error?.message}</p>
+      </Show>
+      <div class="empty-actions">
+        <button class="btn" onClick={props.onRetry}>
           <RefreshCw size={15} /> {t('Erneut versuchen')}
         </button>
-        {overframeUrl && (
-          <button className="btn" onClick={() => openExternal(overframeUrl)}>
+        <Show when={props.overframeUrl}>
+          <button class="btn" onClick={() => openExternal(props.overframeUrl)}>
             <ExternalLink size={15} /> {t('Auf Overframe öffnen')}
           </button>
-        )}
+        </Show>
       </div>
     </div>
   );
 }
 
 // ---------- Suche mit Autovervollständigung ----------
-function ItemSearch({ items, onPick }) {
-  const t = useT();
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const boxRef = useRef(null);
-
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
+function ItemSearch(props) {
+  const [query, setQuery] = createSignal('');
+  const [open, setOpen] = createSignal(false);
+  const [active, setActive] = createSignal(0);
+  let box;
+  const matches = createMemo(() => {
+    const q = query().trim().toLowerCase();
     if (!q) return [];
     const starts = [];
     const contains = [];
-    for (const it of items) {
+    for (const it of props.items) {
       const n = it.name.toLowerCase();
       if (n.startsWith(q)) starts.push(it);
       else if (n.includes(q)) contains.push(it);
     }
     return [...starts, ...contains].slice(0, 12);
-  }, [items, query]);
-
-  useEffect(() => {
-    const close = (e) => !boxRef.current?.contains(e.target) && setOpen(false);
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, []);
-
+  });
+  const close = (e) => !box?.contains(e.target) && setOpen(false);
+  onMount(() => document.addEventListener('mousedown', close));
+  onCleanup(() => document.removeEventListener('mousedown', close));
   const pick = (name) => {
-    onPick(name);
+    props.onPick(name);
     setQuery('');
     setOpen(false);
   };
-
   const onKey = (e) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActive((a) => Math.min(a + 1, matches.length - 1));
+      setActive((a) => Math.min(a + 1, matches().length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
     } else if (e.key === 'Enter') {
-      const it = matches[active];
+      const it = matches()[active()];
       if (it) pick(it.name);
-      else if (query.trim()) pick(query.trim());
+      else if (query().trim()) pick(query().trim());
     } else if (e.key === 'Escape') setOpen(false);
   };
-
   return (
-    <div className="bld-search" ref={boxRef}>
-      <label className="search big">
+    <div class="bld-search" ref={box}>
+      <label class="search big">
         <Search size={16} />
         <input
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
+          value={query()}
+          onInput={(e) => {
+            setQuery(e.currentTarget.value);
             setActive(0);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKey}
           placeholder={t('Item suchen, z. B. Revenant Prime, Glaive, Laetum …')}
-          autoFocus
         />
-        {query && (
-          <button className="icon-btn" onClick={() => setQuery('')} title={t('Leeren')}>
+        <Show when={query()}>
+          <button class="icon-btn" onClick={() => setQuery('')} title={t('Leeren')}>
             <X size={14} />
           </button>
-        )}
+        </Show>
       </label>
-      {open && matches.length > 0 && (
-        <ul className="bld-suggest">
-          {matches.map((it, i) => (
-            <li key={it.id}>
-              <button className={i === active ? 'active' : ''} onMouseEnter={() => setActive(i)} onClick={() => pick(it.name)}>
-                <ItemIcon src={it.image} size={30} />
-                <span>{it.name}</span>
-                <small className="muted">{t(it.category)}</small>
-              </button>
-            </li>
-          ))}
+      <Show when={open() && matches().length > 0}>
+        <ul class="bld-suggest">
+          <For each={matches()}>
+            {(it, i) => (
+              <li>
+                <button classList={{ active: i() === active() }} onMouseEnter={() => setActive(i())} onClick={() => pick(it.name)}>
+                  <ItemIcon src={it.image} size={30} />
+                  <span>{it.name}</span>
+                  <small class="muted">{t(it.category)}</small>
+                </button>
+              </li>
+            )}
+          </For>
         </ul>
-      )}
+      </Show>
     </div>
   );
 }
 
-// ---------- Schnellauswahl ----------
-function Chips({ names, byName, onPick, active }) {
+function MyGear(props) {
+  const [cat, setCat] = createSignal('all');
+  const cats = () => GEAR_CATEGORIES.filter((c) => props.gear.some((g) => g.category === c));
+  const list = () => (cat() === 'all' ? props.gear : props.gear.filter((g) => g.category === cat()));
   return (
-    <div className="bld-chips">
-      {names.map((n) => (
-        <button key={n} className={n === active ? 'active' : ''} onClick={() => onPick(n)}>
-          <ItemIcon src={byName.get(n.toLowerCase())?.image} size={22} />
-          {n}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function MyGear({ gear, onPick }) {
-  const t = useT();
-  const [cat, setCat] = useState('all');
-  const cats = GEAR_CATEGORIES.filter((c) => gear.some((g) => g.category === c));
-  const list = cat === 'all' ? gear : gear.filter((g) => g.category === cat);
-  return (
-    <section className="bld-gear">
-      <div className="bld-gear-head">
+    <section class="bld-gear">
+      <div class="bld-gear-head">
         <h3>
           <Backpack size={17} /> {t('Meine Ausrüstung')}
         </h3>
-        <div className="filter-pills">
-          <button className={cat === 'all' ? 'active' : ''} onClick={() => setCat('all')}>
-            {t('Alle')} <small>{gear.length}</small>
+        <div class="filter-pills">
+          <button classList={{ active: cat() === 'all' }} onClick={() => setCat('all')}>
+            {t('Alle')} <small>{props.gear.length}</small>
           </button>
-          {cats.map((c) => (
-            <button key={c} className={cat === c ? 'active' : ''} onClick={() => setCat(c)}>
-              {t(c)}
-            </button>
-          ))}
+          <For each={cats()}>
+            {(c) => (
+              <button classList={{ active: cat() === c }} onClick={() => setCat(c)}>
+                {t(c)}
+              </button>
+            )}
+          </For>
         </div>
       </div>
-      <div className="bld-gear-grid">
-        {list.map((g) => (
-          <button key={g.id} onClick={() => onPick(g.name)} title={g.name}>
-            <ItemIcon src={g.image} size={48} />
-            <span>{g.name}</span>
-          </button>
-        ))}
+      <div class="bld-gear-grid">
+        <For each={list()}>
+          {(g) => (
+            <button onClick={() => props.onPick(g.name)} title={g.name}>
+              <ItemIcon src={g.image} size={48} />
+              <span>{g.name}</span>
+            </button>
+          )}
+        </For>
       </div>
     </section>
   );
 }
 
 // ---------- Build-Liste und Details ----------
-function BuildList({ itemName, sort, selectedId, onSelect }) {
-  const t = useT();
-  const { language } = useSettings();
-  const [state, setState] = useState({ loading: true });
-  const [retry, setRetry] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    setState({ loading: true });
-    getBuilds(itemName)
-      .then((builds) => alive && setState({ builds }))
-      .catch((error) => alive && setState({ error }));
-    return () => {
-      alive = false;
-    };
-  }, [itemName, retry]);
-
-  const sorted = useMemo(() => {
-    const list = [...(state.builds ?? [])];
-    if (sort === 'date') list.sort((a, b) => new Date(b.updated) - new Date(a.updated));
+function BuildList(props) {
+  const [retry, setRetry] = createSignal(0);
+  const [builds] = createResource(() => [props.itemName, retry()], ([name]) => getBuilds(name));
+  const sorted = createMemo(() => {
+    const list = [...(builds() ?? [])];
+    if (props.sort === 'date') list.sort((a, b) => new Date(b.updated) - new Date(a.updated));
     else list.sort((a, b) => b.score - a.score);
     return list;
-  }, [state.builds, sort]);
-
+  });
   // Ersten Build gleich öffnen, damit rechts nicht leer bleibt
-  useEffect(() => {
-    if (sorted.length && !sorted.some((b) => b.id === selectedId)) onSelect(sorted[0].id);
-  }, [sorted]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (state.loading)
-    return (
-      <div className="empty">
-        <Loader2 size={22} className="spin" />
-        <p>{t('Lade Builds von overframe.gg …')}</p>
-      </div>
-    );
-  if (state.error) return <ErrorBox error={state.error} onRetry={() => setRetry((r) => r + 1)} overframeUrl={OVERFRAME} />;
-  if (!sorted.length)
-    return (
-      <div className="empty">
-        <Wrench size={28} />
-        <p>{t('Für {name} gibt es auf Overframe noch keine Builds.', { name: itemName })}</p>
-        <p className="small">{t('Prüfe die Schreibweise – gesucht wird mit dem englischen Item-Namen.')}</p>
-      </div>
-    );
-
+  createEffect(on(sorted, (list) => list.length && !list.some((b) => b.id === props.selectedId) && props.onSelect(list[0].id)));
   return (
-    <ul className="bld-list">
-      {sorted.map((b) => (
-        <li key={b.id}>
-          <button className={b.id === selectedId ? 'active' : ''} onClick={() => onSelect(b.id)}>
-            <span className="bld-score" title={t('Stimmen')}>
-              <ThumbsUp size={13} />
-              {compact(b.score)}
-            </span>
-            <span className="bld-card-main">
-              <b className="bld-card-title">{b.title || t('(ohne Titel)')}</b>
-              <span className="bld-card-meta">
-                <span>
-                  <User size={12} /> {b.author?.username ?? '–'}
-                </span>
-                <span title={t('Forma')}>
-                  <span className="bld-forma" /> {b.formas}
-                </span>
-                <span title={fullDate(b.updated, language)}>
-                  <Clock size={12} /> {relTime(b.updated, language)}
-                </span>
-              </span>
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <Switch>
+      <Match when={builds.loading}>
+        <div class="empty">
+          <LoaderCircle size={22} class="spin" />
+          <p>{t('Lade Builds von overframe.gg …')}</p>
+        </div>
+      </Match>
+      <Match when={builds.error}>
+        <ErrorBox error={builds.error} onRetry={() => setRetry((r) => r + 1)} overframeUrl={OVERFRAME} />
+      </Match>
+      <Match when={!sorted().length}>
+        <div class="empty">
+          <Wrench size={28} />
+          <p>{t('Für {name} gibt es auf Overframe noch keine Builds.', { name: props.itemName })}</p>
+          <p class="small">{t('Prüfe die Schreibweise – gesucht wird mit dem englischen Item-Namen.')}</p>
+        </div>
+      </Match>
+      <Match when={true}>
+        <ul class="bld-list">
+          <For each={sorted()}>
+            {(b) => (
+              <li>
+                <button classList={{ active: b.id === props.selectedId }} onClick={() => props.onSelect(b.id)}>
+                  <span class="bld-score" title={t('Stimmen')}>
+                    <ThumbsUp size={13} />
+                    {compact(b.score)}
+                  </span>
+                  <span class="bld-card-main">
+                    <b class="bld-card-title">{b.title || t('(ohne Titel)')}</b>
+                    <span class="bld-card-meta">
+                      <span>
+                        <User size={12} /> {b.author?.username ?? '–'}
+                      </span>
+                      <span title={t('Forma')}>
+                        <span class="bld-forma" /> {b.formas}
+                      </span>
+                      <span title={fullDate(b.updated)}>
+                        <Clock size={12} /> {relTime(b.updated)}
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )}
+          </For>
+        </ul>
+      </Match>
+    </Switch>
   );
 }
 
-function BuildDetail({ id, onOpenBuild, items }) {
-  const t = useT();
-  const { language } = useSettings();
-  const [state, setState] = useState({ loading: true });
-  const [retry, setRetry] = useState(0);
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    let alive = true;
-    setState({ loading: true });
-    getBuild(id)
-      .then((build) => alive && setState({ build }))
-      .catch((error) => alive && setState({ error }));
-    scrollRef.current?.scrollTo({ top: 0 });
-    return () => {
-      alive = false;
-    };
-  }, [id, retry]);
-
-  const saved = useSavedBuilds();
-  const b = state.build;
-  const url = b ? OVERFRAME + b.url : `${OVERFRAME}/build/${id}/`;
-  const item = b ? itemFromUrl(b.url, items) : null;
-  const snap = b ? snapshot(b, item?.name) : null;
-  const fav = saved.fav.includes(id);
-  const active = saved.active.includes(id);
-  const done = saved.done.includes(id);
-
+function BuildDetail(props) {
+  const [retry, setRetry] = createSignal(0);
+  const [build] = createResource(() => [props.id, retry()], ([id]) => getBuild(id));
+  let scroll;
+  createEffect(on(() => props.id, () => scroll?.scrollTo({ top: 0 })));
+  const url = () => (build() ? OVERFRAME + build().url : `${OVERFRAME}/build/${props.id}/`);
+  const item = () => (build() ? itemFromUrl(build().url, props.items) : null);
+  const snap = () => (build() ? snapshot(build(), item()?.name) : null);
+  const fav = () => saved.fav.includes(props.id);
+  const active = () => saved.active.includes(props.id);
+  const done = () => saved.done.includes(props.id);
   return (
-    <div className="bld-detail" ref={scrollRef}>
-      {state.loading && (
-        <div className="empty">
-          <Loader2 size={22} className="spin" />
-        </div>
-      )}
-      {state.error && <ErrorBox error={state.error} onRetry={() => setRetry((r) => r + 1)} overframeUrl={url} />}
-      {b && (
-        <>
-          <div className="bld-detail-head">
-            <div>
-              <h2>{b.title || t('(ohne Titel)')}</h2>
-              <p className="muted">
-                {t('von {name}', { name: b.author?.username ?? '–' })} · {t('aktualisiert {when}', { when: relTime(b.updated, language) })} (
-                {fullDate(b.updated, language)})
-              </p>
-            </div>
-            <div className="bld-detail-actions">
-              <button className={`btn ${fav ? 'bld-fav-on' : ''}`} onClick={() => toggleFavorite(snap)} title={t('Zu den Favoriten')}>
-                <Star size={15} fill={fav ? 'currentColor' : 'none'} /> {t(fav ? 'Favorit' : 'Favorisieren')}
-              </button>
-              <button className={`btn ${active ? 'bld-active-on' : ''}`} onClick={() => toggleActive(snap)} title={t('In die Liste „In Arbeit“ – mit Checkliste zum Fertigstellen')}>
-                {done ? <CheckCircle2 size={15} /> : <Target size={15} />} {t(active ? 'Wird verfolgt' : done ? 'Fertig – neu verfolgen' : 'Verfolgen')}
-              </button>
-              <button className="btn btn-primary" onClick={() => openExternal(url)}>
-                <ExternalLink size={15} /> {t('Auf Overframe öffnen')}
-              </button>
-            </div>
+    <div class="bld-detail" ref={scroll}>
+      <Switch>
+        <Match when={build.loading}>
+          <div class="empty">
+            <LoaderCircle size={22} class="spin" />
           </div>
-          <div className="bld-facts">
-            <span title={t('Stimmen')}>
-              <ThumbsUp size={14} /> {b.score.toLocaleString(language === 'de' ? 'de-DE' : 'en-US')}
-            </span>
-            <span title={t('Forma')}>
-              <span className="bld-forma" /> {b.formas} Forma
-            </span>
-            {b.mastery_rank > 0 && <span title={t('Mastery-Rang')}>MR {b.mastery_rank}</span>}
-            {b.endo_cost > 0 && <span title={t('Endo für alle Mods')}>{compact(b.endo_cost)} Endo</span>}
-            {b.platinum_cost > 0 && (
-              <span title={t('Ungefährer Platin-Preis der Mods')}>
-                <Plat size={14} /> {b.platinum_cost}
-              </span>
-            )}
-            {b.comment_count != null && (
-              <span title={t('Kommentare')}>
-                <MessageSquare size={14} /> {b.comment_count}
-              </span>
-            )}
-          </div>
-          {active && <BuildChecklist snap={snap} item={item} />}
-          <BuildMods slots={b.slots} />
-          {b.description?.trim() ? (
-            <Markdown text={b.description} onOpenBuild={onOpenBuild} />
-          ) : (
-            <p className="muted">{t('Dieser Build hat keinen Guide-Text.')}</p>
+        </Match>
+        <Match when={build.error}>
+          <ErrorBox error={build.error} onRetry={() => setRetry((r) => r + 1)} overframeUrl={url()} />
+        </Match>
+        <Match when={build()}>
+          {(b) => (
+            <>
+              <div class="bld-detail-head">
+                <div>
+                  <h2>{b().title || t('(ohne Titel)')}</h2>
+                  <p class="muted">
+                    {t('von {name}', { name: b().author?.username ?? '–' })} · {t('aktualisiert {when}', { when: relTime(b().updated) })} ({fullDate(b().updated)})
+                  </p>
+                </div>
+                <div class="bld-detail-actions">
+                  <button class="btn" classList={{ 'bld-fav-on': fav() }} onClick={() => toggleFavorite(snap())} title={t('Zu den Favoriten')}>
+                    <Star size={15} fill={fav() ? 'currentColor' : 'none'} /> {t(fav() ? 'Favorit' : 'Favorisieren')}
+                  </button>
+                  <button class="btn" classList={{ 'bld-active-on': active() }} onClick={() => toggleActive(snap())} title={t('In die Liste „In Arbeit“ – mit Checkliste zum Fertigstellen')}>
+                    {done() ? <CircleCheck size={15} /> : <Target size={15} />} {t(active() ? 'Wird verfolgt' : done() ? 'Fertig – neu verfolgen' : 'Verfolgen')}
+                  </button>
+                  <button class="btn btn-primary" onClick={() => openExternal(url())}>
+                    <ExternalLink size={15} /> {t('Auf Overframe öffnen')}
+                  </button>
+                </div>
+              </div>
+              <div class="bld-facts">
+                <span title={t('Stimmen')}>
+                  <ThumbsUp size={14} /> {b().score.toLocaleString(settings.language === 'de' ? 'de-DE' : 'en-US')}
+                </span>
+                <span title={t('Forma')}>
+                  <span class="bld-forma" /> {b().formas} Forma
+                </span>
+                <Show when={b().mastery_rank > 0}>
+                  <span title={t('Mastery-Rang')}>MR {b().mastery_rank}</span>
+                </Show>
+                <Show when={b().endo_cost > 0}>
+                  <span title={t('Endo für alle Mods')}>{compact(b().endo_cost)} Endo</span>
+                </Show>
+                <Show when={b().platinum_cost > 0}>
+                  <span title={t('Ungefährer Platin-Preis der Mods')}>
+                    <Plat size={14} /> {b().platinum_cost}
+                  </span>
+                </Show>
+                <Show when={b().comment_count != null}>
+                  <span title={t('Kommentare')}>
+                    <MessageSquare size={14} /> {b().comment_count}
+                  </span>
+                </Show>
+              </div>
+              <Show when={active()}>
+                <BuildChecklist snap={snap()} item={item()} />
+              </Show>
+              <BuildMods slots={b().slots} />
+              <Show when={b().description?.trim()} fallback={<p class="muted">{t('Dieser Build hat keinen Guide-Text.')}</p>}>
+                <Markdown text={b().description} onOpenBuild={props.onOpenBuild} />
+              </Show>
+            </>
           )}
-        </>
-      )}
+        </Match>
+      </Switch>
     </div>
   );
 }
 
-function SavedList({ tab, selectedId, onSelect, items }) {
-  const t = useT();
-  const { language } = useSettings();
-  const { inventory } = useGameData();
-  const saved = useSavedBuilds();
-  const [data, setData] = useState(null);
-  useEffect(() => {
-    loadData()
-      .then(setData)
-      .catch(() => setData({ mods: {}, market: new Map() }));
-  }, []);
-  const ids = tab === 'fav' ? saved.fav : saved.active;
-  const row = (id, isDone) => {
-    const b = saved.builds[id];
-    if (!b) return null;
-    const item = items.find((i) => i.name === b.item) ?? itemFromUrl(b.url, items);
-    const p = !isDone && tab === 'active' && data ? buildProgress(b, data, inventory, saved.checks[id], item) : null;
+function SavedList(props) {
+  const [data] = createResource(() => loadData().catch(() => ({ mods: {}, market: new Map() })));
+  const ids = () => (props.tab === 'fav' ? saved.fav : saved.active);
+  const Row = (rp) => {
+    const b = () => saved.builds[rp.id];
+    const item = () => (b() ? props.items.find((i) => i.name === b().item) ?? itemFromUrl(b().url, props.items) : null);
+    const p = () => (!rp.isDone && props.tab === 'active' && data() && b() ? buildProgress(b(), data(), game.inventory, saved.checks[rp.id], item()) : null);
     return (
-      <li key={id}>
-        <button className={`${id === selectedId ? 'active' : ''} ${isDone ? 'bld-done' : ''}`} onClick={() => onSelect(id)}>
-          <ItemIcon src={item?.image} size={40} />
-          <span className="bld-card-main">
-            <b className="bld-card-title">{b.title || t('(ohne Titel)')}</b>
-            <span className="bld-card-meta">
-              <span>{b.item ?? '–'}</span>
-              <span>
-                <User size={12} /> {b.author ?? '–'}
-              </span>
-              {!p && (
-                <span title={fullDate(b.updated, language)}>
-                  <Clock size={12} /> {relTime(b.updated, language)}
+      <Show when={b()}>
+        <li>
+          <button classList={{ active: rp.id === props.selectedId, 'bld-done': rp.isDone }} onClick={() => props.onSelect(rp.id)}>
+            <ItemIcon src={item()?.image} size={40} />
+            <span class="bld-card-main">
+              <b class="bld-card-title">{b().title || t('(ohne Titel)')}</b>
+              <span class="bld-card-meta">
+                <span>{b().item ?? '–'}</span>
+                <span>
+                  <User size={12} /> {b().author ?? '–'}
                 </span>
-              )}
-            </span>
-            {p && (
-              <span className="bld-progress" title={t('{a} von {b} erledigt', { a: p.done, b: p.total })}>
-                <span className="bc-bar">
-                  <i style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} />
-                </span>
-                <small>
-                  {p.done}/{p.total}
-                </small>
+                <Show when={!p()}>
+                  <span title={fullDate(b().updated)}>
+                    <Clock size={12} /> {relTime(b().updated)}
+                  </span>
+                </Show>
               </span>
-            )}
-          </span>
-          {isDone && (
-            <span
-              className="icon-btn"
-              role="button"
-              title={t('Aus der Liste entfernen')}
-              onClick={(e) => {
-                e.stopPropagation();
-                removeDone(id);
-              }}
-            >
-              <Trash2 size={14} />
+              <Show when={p()}>
+                <span class="bld-progress" title={t('{a} von {b} erledigt', { a: p().done, b: p().total })}>
+                  <span class="bc-bar">
+                    <i style={{ width: `${p().total ? (p().done / p().total) * 100 : 0}%` }} />
+                  </span>
+                  <small>
+                    {p().done}/{p().total}
+                  </small>
+                </span>
+              </Show>
             </span>
-          )}
-        </button>
-      </li>
+            <Show when={rp.isDone}>
+              <span
+                class="icon-btn"
+                role="button"
+                title={t('Aus der Liste entfernen')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeDone(rp.id);
+                }}
+              >
+                <Trash2 size={14} />
+              </span>
+            </Show>
+          </button>
+        </li>
+      </Show>
     );
   };
-  if (!ids.length && !(tab === 'active' && saved.done.length))
-    return (
-      <div className="empty">
-        {tab === 'fav' ? <Star size={26} /> : <Target size={26} />}
-        <p>
-          {t(
-            tab === 'fav'
-              ? 'Noch keine Favoriten. Öffne einen Build und klick auf „Favorisieren“.'
-              : 'Noch nichts in Arbeit. Öffne einen Build und klick auf „Verfolgen“ – dann bekommst du eine Checkliste mit allem, was noch fehlt.',
-          )}
-        </p>
-      </div>
-    );
   return (
-    <ul className="bld-list">
-      {ids.map((id) => row(id, false))}
-      {tab === 'active' && saved.done.length > 0 && (
-        <>
-          <li className="bld-list-sep muted small">
-            <CheckCircle2 size={13} /> {t('Fertig')} ({saved.done.length})
+    <Show
+      when={ids().length || (props.tab === 'active' && saved.done.length)}
+      fallback={
+        <div class="empty">
+          {props.tab === 'fav' ? <Star size={26} /> : <Target size={26} />}
+          <p>
+            {t(
+              props.tab === 'fav'
+                ? 'Noch keine Favoriten. Öffne einen Build und klick auf „Favorisieren“.'
+                : 'Noch nichts in Arbeit. Öffne einen Build und klick auf „Verfolgen“ – dann bekommst du eine Checkliste mit allem, was noch fehlt.',
+            )}
+          </p>
+        </div>
+      }
+    >
+      <ul class="bld-list">
+        <For each={ids()}>{(id) => <Row id={id} isDone={false} />}</For>
+        <Show when={props.tab === 'active' && saved.done.length > 0}>
+          <li class="bld-list-sep muted small">
+            <CircleCheck size={13} /> {t('Fertig')} ({saved.done.length})
           </li>
-          {saved.done.map((id) => row(id, true))}
-        </>
-      )}
-    </ul>
+          <For each={saved.done}>{(id) => <Row id={id} isDone={true} />}</For>
+        </Show>
+      </ul>
+    </Show>
   );
 }
 
 export default function Builds() {
-  const t = useT();
-  const { db, error: dbError } = useMasteryDb();
-  const { inventory } = useGameData();
-  const [item, setItem] = useState(() => loadSelectedItem());
-  const [recent, setRecent] = useState(() => loadRecent());
-  const [sort, setSort] = useState('score');
-  const [buildId, setBuildId] = useState(null);
-  const [showGear, setShowGear] = useState(false);
-  // Suche | Favoriten | In Arbeit (gemerkt)
-  const [tab, setTab] = useState(() => load('td.builds.tab', 'search'));
-  const [savedId, setSavedId] = useState(null);
-  const saved = useSavedBuilds();
+  const [db] = createResource(() => loadMasteryDb());
+  const [item, setItem] = createSignal(loadSelectedItem());
+  const [recent, setRecent] = createSignal(loadRecent());
+  const [sort, setSort] = createSignal('score');
+  const [buildId, setBuildId] = createSignal(null);
+  const [showGear, setShowGear] = createSignal(false);
+  const [tab, setTab] = createSignal(load('cm.builds.tab', 'search'));
+  const [savedId, setSavedId] = createSignal(null);
   const pickTab = (x) => {
     setTab(x);
-    save('td.builds.tab', x);
+    save('cm.builds.tab', x);
   };
-
-  const items = useMemo(() => (db?.items ?? []).filter((i) => GEAR_CATEGORIES.includes(i.category)), [db]);
-  const byName = useMemo(() => new Map(items.map((i) => [i.name.toLowerCase(), i])), [items]);
+  const items = createMemo(() => (db()?.items ?? []).filter((i) => GEAR_CATEGORIES.includes(i.category)));
+  const byName = createMemo(() => new Map(items().map((i) => [i.name.toLowerCase(), i])));
   // Eigene Ausrüstung, meistbenutzte (meiste XP) zuerst
-  const gear = useMemo(() => {
-    if (!inventory) return [];
-    return items.filter((i) => (inventory.owned[i.id] ?? 0) > 0).sort((a, b) => (inventory.xp[b.id] ?? 0) - (inventory.xp[a.id] ?? 0));
-  }, [items, inventory]);
-
+  const gear = createMemo(() => {
+    const inv = game.inventory;
+    if (!inv) return [];
+    return items()
+      .filter((i) => (inv.owned[i.id] ?? 0) > 0)
+      .sort((a, b) => (inv.xp[b.id] ?? 0) - (inv.xp[a.id] ?? 0));
+  });
   const pick = (name) => {
-    const canonical = byName.get(name.toLowerCase())?.name ?? name;
+    const canonical = byName().get(name.toLowerCase())?.name ?? name;
     setItem(canonical);
     saveSelectedItem(canonical);
-    if (byName.has(canonical.toLowerCase())) setRecent(pushRecent(canonical)); // Tippfehler nicht merken
+    if (byName().has(canonical.toLowerCase())) setRecent(pushRecent(canonical)); // Tippfehler nicht merken
     setBuildId(null);
     setShowGear(false);
     pickTab('search');
   };
-
-  const current = item ? byName.get(item.toLowerCase()) : null;
+  // Von anderen Seiten (Item-Details) vorgewählt, während die Seite schon offen ist
+  const onPending = () => {
+    const name = loadSelectedItem();
+    if (name) pick(name);
+  };
+  window.addEventListener('cm:builds-item', onPending);
+  onCleanup(() => window.removeEventListener('cm:builds-item', onPending));
+  createEffect(on(db, (d) => d && item() && byName().has(item().toLowerCase()) && setRecent(pushRecent(byName().get(item().toLowerCase()).name)), { defer: true }));
+  const current = () => (item() ? byName().get(item().toLowerCase()) : null);
 
   return (
-    <div className="page bld">
-      <div className="page-tabs bld-tabs">
-        <button className={tab === 'search' ? 'active' : ''} onClick={() => pickTab('search')}>
-          <SearchIcon size={15} /> {t('Suche')}
+    <div class="page bld">
+      <div class="page-tabs bld-tabs">
+        <button classList={{ active: tab() === 'search' }} onClick={() => pickTab('search')}>
+          <Search size={15} /> {t('Suche')}
         </button>
-        <button className={tab === 'fav' ? 'active' : ''} onClick={() => pickTab('fav')}>
-          <Star size={15} /> {t('Favoriten')} {saved.fav.length > 0 && <span className="count">{saved.fav.length}</span>}
+        <button classList={{ active: tab() === 'fav' }} onClick={() => pickTab('fav')}>
+          <Star size={15} /> {t('Favoriten')}{' '}
+          <Show when={saved.fav.length > 0}>
+            <span class="count">{saved.fav.length}</span>
+          </Show>
         </button>
-        <button className={tab === 'active' ? 'active' : ''} onClick={() => pickTab('active')}>
-          <Target size={15} /> {t('In Arbeit')} {saved.active.length > 0 && <span className="count">{saved.active.length}</span>}
+        <button classList={{ active: tab() === 'active' }} onClick={() => pickTab('active')}>
+          <Target size={15} /> {t('In Arbeit')}{' '}
+          <Show when={saved.active.length > 0}>
+            <span class="count">{saved.active.length}</span>
+          </Show>
         </button>
       </div>
-      {tab !== 'search' ? (
-        <div className="bld-cols">
-          <aside className="bld-side">
-            <SavedList tab={tab} selectedId={savedId} onSelect={setSavedId} items={items} />
-          </aside>
-          {savedId ? <BuildDetail id={savedId} onOpenBuild={setSavedId} items={items} /> : <div className="bld-detail" />}
+      <Show
+        when={tab() === 'search'}
+        fallback={
+          <div class="bld-cols">
+            <aside class="bld-side">
+              <SavedList tab={tab()} selectedId={savedId()} onSelect={setSavedId} items={items()} />
+            </aside>
+            <Show when={savedId()} keyed fallback={<div class="bld-detail" />}>
+              {(id) => <BuildDetail id={id} onOpenBuild={setSavedId} items={items()} />}
+            </Show>
+          </div>
+        }
+      >
+        <div class="toolbar bld-toolbar">
+          <ItemSearch items={items()} onPick={pick} />
+          <Show when={gear().length > 0 && item()}>
+            <button class="btn" classList={{ 'btn-primary': showGear() }} onClick={() => setShowGear((s) => !s)}>
+              <Backpack size={15} /> {t('Meine Ausrüstung')}
+            </button>
+          </Show>
+          <div class="toolbar-right">
+            <button class="bld-source muted small" onClick={() => openExternal(OVERFRAME)} title="overframe.gg">
+              {t('Daten von overframe.gg')} <ExternalLink size={12} />
+            </button>
+          </div>
         </div>
-      ) : (
-      <>
-      <div className="toolbar bld-toolbar">
-        <ItemSearch items={items} onPick={pick} />
-        {gear.length > 0 && item && (
-          <button className={`btn ${showGear ? 'btn-primary' : ''}`} onClick={() => setShowGear((s) => !s)}>
-            <Backpack size={15} /> {t('Meine Ausrüstung')}
-          </button>
-        )}
-        <div className="toolbar-right">
-          <button className="bld-source muted small" onClick={() => openExternal(OVERFRAME)} title="overframe.gg">
-            {t('Daten von overframe.gg')} <ExternalLink size={12} />
-          </button>
-        </div>
-      </div>
-
-      {recent.length > 0 && (
-        <div className="bld-recent">
-          <span className="muted small">
-            <History size={14} /> {t('Zuletzt angesehen')}
-          </span>
-          <Chips names={recent} byName={byName} onPick={pick} active={item} />
-        </div>
-      )}
-      {dbError && <p className="err">{dbError}</p>}
-
-      {(!item || showGear) &&
-        (gear.length ? (
-          <MyGear gear={gear} onPick={pick} />
-        ) : (
-          !item && (
-            <div className="empty">
-              <Wrench size={30} />
-              <h2>{t('Builds von Overframe')}</h2>
-              <p>{t('Such oben nach einem Warframe, einer Waffe oder einem Begleiter. Nach einem Sync mit dem Spiel siehst du hier auch deine eigene Ausrüstung.')}</p>
+        <Show when={recent().length > 0}>
+          <div class="bld-recent">
+            <span class="muted small">
+              <History size={14} /> {t('Zuletzt angesehen')}
+            </span>
+            <div class="bld-chips">
+              <For each={recent()}>
+                {(n) => (
+                  <button classList={{ active: n === item() }} onClick={() => pick(n)}>
+                    <ItemIcon src={byName().get(n.toLowerCase())?.image} size={22} />
+                    {n}
+                  </button>
+                )}
+              </For>
             </div>
-          )
-        ))}
-
-      {item && !showGear && (
-        <div className="bld-cols">
-          <aside className="bld-side">
-            <div className="bld-item">
-              <ItemIcon src={current?.image} size={56} />
-              <div>
-                <h2>{item}</h2>
-                {current && <small className="muted">{t(current.category)}</small>}
+          </div>
+        </Show>
+        <Show when={db.error}>
+          <p class="err">{db.error.message}</p>
+        </Show>
+        <Show when={!item() || showGear()}>
+          <Show
+            when={gear().length}
+            fallback={
+              <Show when={!item()}>
+                <div class="empty">
+                  <Wrench size={30} />
+                  <h2>{t('Builds von Overframe')}</h2>
+                  <p>{t('Such oben nach einem Warframe, einer Waffe oder einem Begleiter. Nach einem Sync mit dem Spiel siehst du hier auch deine eigene Ausrüstung.')}</p>
+                </div>
+              </Show>
+            }
+          >
+            <MyGear gear={gear()} onPick={pick} />
+          </Show>
+        </Show>
+        <Show when={item() && !showGear()}>
+          <div class="bld-cols">
+            <aside class="bld-side">
+              <div class="bld-item">
+                <ItemIcon src={current()?.image} size={56} />
+                <div>
+                  <h2>{item()}</h2>
+                  <Show when={current()}>
+                    <small class="muted">{t(current().category)}</small>
+                  </Show>
+                </div>
+                <div class="seg seg-text bld-sort" title={t('Sortierung')}>
+                  <button classList={{ active: sort() === 'score' }} onClick={() => setSort('score')}>
+                    <ThumbsUp size={13} /> {t('Stimmen')}
+                  </button>
+                  <button classList={{ active: sort() === 'date' }} onClick={() => setSort('date')}>
+                    <ArrowDownUp size={13} /> {t('Neueste')}
+                  </button>
+                </div>
               </div>
-              <div className="seg seg-text bld-sort" title={t('Sortierung')}>
-                <button className={sort === 'score' ? 'active' : ''} onClick={() => setSort('score')}>
-                  <ThumbsUp size={13} /> {t('Stimmen')}
-                </button>
-                <button className={sort === 'date' ? 'active' : ''} onClick={() => setSort('date')}>
-                  <ArrowDownUp size={13} /> {t('Neueste')}
-                </button>
-              </div>
-            </div>
-            <BuildList itemName={item} sort={sort} selectedId={buildId} onSelect={setBuildId} />
-          </aside>
-          {buildId ? <BuildDetail id={buildId} onOpenBuild={setBuildId} items={items} /> : <div className="bld-detail" />}
-        </div>
-      )}
-      </>
-      )}
+              <Show when={item()} keyed>
+                {(name) => <BuildList itemName={name} sort={sort()} selectedId={buildId()} onSelect={setBuildId} />}
+              </Show>
+            </aside>
+            <Show when={buildId()} keyed fallback={<div class="bld-detail" />}>
+              {(id) => <BuildDetail id={id} onOpenBuild={setBuildId} items={items()} />}
+            </Show>
+          </div>
+        </Show>
+      </Show>
     </div>
   );
 }

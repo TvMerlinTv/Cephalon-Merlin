@@ -58,28 +58,33 @@ The app is available in **English** and **German**.
 
 ## 🛠️ Build from source
 
-Cephalon Merlin is open source (MIT). It is an Electron 33 + React 18 + Vite 5 app.
-You need [Node.js](https://nodejs.org) 20 or newer and Windows (the game sync and the overlay use Windows APIs).
+Cephalon Merlin is open source (MIT). Since **v0.2.0** it is written in **Rust** with [Tauri 2](https://tauri.app) and a **SolidJS** UI:
+game sync, screen capture + OCR for the overlay, the warframe.market request queue and all background jobs run natively in Rust,
+the UI uses the WebView2 that ships with Windows. That makes the download ~5.6 MB instead of ~70 MB, with less RAM and a faster start.
+
+Requirements (Windows 10/11): [Node.js](https://nodejs.org) 20+, [Rust](https://rustup.rs) stable (MSVC toolchain),
+Visual Studio 2022 Build Tools with "Desktop development with C++", WebView2 (preinstalled on Windows 11).
 
 ```bash
 git clone https://github.com/TvMerlinTv/Cephalon-Merlin.git
 cd Cephalon-Merlin
 npm install
-npm run dev      # Electron app with hot reload
-npm run web      # UI only, in the browser (http://127.0.0.1:5173)
-npm run dist     # portable .exe in release/
+npm run app        # tauri dev with hot reload
+npx tauri build    # release build in src-tauri/target/release/
 ```
 
-Optional: `node build/make-overframe-mods.cjs` generates `src/lib/overframeMods.json`, the mapping of
+Optional: `node legacy-electron/build/make-overframe-mods.cjs` generates `src/lib/overframeMods.json`, the mapping of
 Overframe mod IDs that the Builds page needs to show mod loadouts. It is read from overframe.gg's website
 and therefore not part of this repository; without it the app works, builds just show no mods.
 
 | Folder | Content |
 | --- | --- |
-| `electron/` | Main process: game sync, overlay + OCR, world state, auto-sync, updater, settings |
-| `src/` | React UI (pages, components, `lib/` for data and helpers) |
-| `build/` | Scripts: icon, riven/Overframe data, preview, release |
-| `github/` | Source of this page |
+| `src-tauri/` | Rust backend: game sync, overlay + OCR, world state, auto-sync, alerts, Discord, updater, settings |
+| `src/` | SolidJS UI (pages, components, `lib/` for data and helpers) |
+| `scripts/` | Preview build helper |
+| `legacy-electron/` | The previous Electron version (v0.1.x), kept for reference |
+
+Your data lives in `%APPDATA%\Cephalon Merlin RS`; on first start it is copied over from the 0.1.x folder `%APPDATA%\Cephalon Merlin`.
 
 Pull requests and issues are welcome.
 

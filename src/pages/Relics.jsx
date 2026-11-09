@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Infinity as All, Search, ArrowDownUp, Users, Lock, Check, Sparkles } from 'lucide-react';
-import { game, getItems, getBulkPrices, load, save } from '../lib/api.js';
-import { useGameData, builtCount } from '../lib/GameData.jsx';
-import { useMasteryDb } from '../lib/masteryDb.js';
+// Relikt-Planer: eigene Relikte, erwarteter Platin-/Ducat-Wert pro Öffnung (Radshare) und was sich lohnt.
+import { createMemo, createSignal, For, Match, Show, Switch } from 'solid-js';
+import { createStore } from 'solid-js/store';
+import { Infinity as All, Search, ArrowDownUp, Users, Lock, Check, Sparkles } from 'lucide-solid';
+import { game } from '../lib/game.js';
+import { createRewardInfo } from '../lib/rewardInfo.js';
+import { expectedValue, rarityOf } from '../lib/gamedb.js';
+import { RelicIcon } from '../components/WorldWidgets.jsx';
+import { STATUS } from '../components/ScanViews.jsx';
 import ItemDetails from '../components/ItemDetails.jsx';
-import RelicIcon from '../components/RelicIcon.jsx';
-import { expectedValue, rarityOf } from '../lib/relicMath.js';
 import { Plat, Ducat } from '../components/Icons.jsx';
-import { useT } from '../lib/i18n.js';
+import { t } from '../lib/i18n.js';
+import { load, openExternal, save } from '../lib/ipc.js';
 
 const PAGE = 40;
 const TIERS = ['Lith', 'Meso', 'Neo', 'Axi', 'Requiem'];
@@ -17,108 +20,63 @@ const REFINEMENTS = [
   ['flawless', 'Flawless'],
   ['radiant', 'Radiant'],
 ];
-const SORTS = {
-  plat: 'Platin-Profit',
-  ducats: 'Ducats',
-  count: 'Anzahl',
-  name: 'Name',
-};
-const PREFS_KEY = 'td.relics.prefs.v1';
+const SORTS = { plat: 'Platin-Profit', ducats: 'Ducats', count: 'Anzahl', name: 'Name' };
+const PREFS_KEY = 'cm.relics.prefs.v1';
 
-function RewardIcon({ reward, meta, have, onOpen }) {
-  const t = useT();
-  const tip = [
-    reward.name,
-    t('{n} % Chance', { n: reward.chance }),
-    meta.price != null ? t('{n} Platin', { n: meta.price }) : null,
-    meta.ducats ? t('{n} Ducats', { n: meta.ducats }) : null,
-    have ? t('Hast du schon') : null,
-  ]
-    .filter(Boolean)
-    .join('\n');
+function RewardIcon(props) {
+  const info = () => props.ri.info(props.reward.name);
+  const have = () => ['have', 'owned', 'mastered'].includes(info().status);
+  const tip = () =>
+    [
+      props.reward.name,
+      t('{n} % Chance', { n: props.reward.chance }),
+      info().plat != null ? t('{n} Platin', { n: info().plat }) : null,
+      info().ducats ? t('{n} Ducats', { n: info().ducats }) : null,
+      info().status !== 'none' && info().status !== 'forma' ? t(STATUS[info().status].text) : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
   return (
-    <button className={`reward ${rarityOf(reward.chance)} ${have ? 'have' : ''}`} title={tip} onClick={onOpen}>
-      {meta.thumb ? <img src={meta.thumb} alt="" loading="lazy" /> : <Sparkles size={16} />}
-      {have && (
-        <span className="reward-check">
-          <Check size={10} strokeWidth={3} />
+    <button
+      class={`reward ${rarityOf(props.reward.chance)}`}
+      classList={{ have: have() }}
+      title={tip()}
+      onClick={() => props.onOpen(props.reward)}
+    >
+      {info().thumb ? <img src={info().thumb} alt="" loading="lazy" /> : <Sparkles size={16} />}
+      <Show when={have()}>
+        <span class="reward-check">
+          <Check size={10} stroke-width={3} />
         </span>
-      )}
+      </Show>
     </button>
   );
 }
 
 export default function Relics() {
-  const tr = useT(); // "t" ist unten die Laufvariable der Ären
-  const { inventory } = useGameData();
-  const { db: mastery } = useMasteryDb();
-  const [relicDb, setRelicDb] = useState(null);
-  const [market, setMarket] = useState(null);
-  const [prices, setPrices] = useState(null);
-  const [error, setError] = useState(null);
-  const [prefs, setPrefs] = useState(() => ({
-    tier: 'all',
-    sort: 'plat',
-    squad: 4,
-    refinement: 'intact',
-    onlyOwned: true,
-    ...load(PREFS_KEY, {}),
-  }));
-  const [query, setQuery] = useState('');
-  const [limit, setLimit] = useState(PAGE);
-  const [details, setDetails] = useState(null);
+  const ri = createRewardInfo();
+  const [prefs, setPrefs] = createStore({ tier: 'all', sort: 'plat', squad: 4, refinement: 'intact', onlyOwned: true, ...load(PREFS_KEY, {}) });
+  const [query, setQuery] = createSignal('');
+  const [limit, setLimit] = createSignal(PAGE);
+  const [details, setDetails] = createSignal(null);
+  const openReward = (w) => {
+    const entry = w.id ? ri().mastery?.index.get(w.id) : null;
+    const m = w.slug ? ri().market.get(w.slug) : null;
+    if (entry) setDetails({ item: entry.item, partId: entry.part?.id });
+    else if (m) setDetails({ marketItem: m });
+  };
+  const setPref = (k, v) => {
+    setPrefs(k, v);
+    save(PREFS_KEY, { ...prefs });
+    setLimit(PAGE);
+  };
 
-  const setPref = (k, v) =>
-    setPrefs((p) => {
-      const next = { ...p, [k]: v };
-      save(PREFS_KEY, next);
-      return next;
-    });
-
-  useEffect(() => {
-    Promise.all([game.relicDb(), getItems(), getBulkPrices()])
-      .then(([r, items, bulk]) => {
-        setRelicDb(r);
-        setMarket(new Map(items.map((i) => [i.slug, i])));
-        setPrices(bulk);
-      })
-      .catch((e) => setError(e.message));
-  }, []);
-
-  useEffect(() => setLimit(PAGE), [prefs, query]);
-
-  // Preis, Ducats, Bild pro Belohnung
-  const metaOf = useMemo(() => {
-    const cache = new Map();
-    return (r) => {
-      if (cache.has(r.name)) return cache.get(r.name);
-      const m = r.slug ? market?.get(r.slug) : null;
-      const meta = {
-        price: prices?.[r.name.toLowerCase()] ?? null,
-        ducats: m?.ducats ?? 0,
-        thumb: m?.thumb ?? null,
-      };
-      cache.set(r.name, meta);
-      return meta;
-    };
-  }, [market, prices]);
-
-  // Hast du das Teil schon? (im Inventar, oder das fertige Item besitzt/gemeistert)
-  const haveOf = useMemo(() => {
-    return (r) => {
-      if (!r.id || !inventory) return false;
-      if (builtCount(inventory, r.id) > 0) return true;
-      const entry = mastery?.index.get(r.id);
-      if (!entry) return false;
-      const item = entry.item;
-      return (inventory.owned[item.id] ?? 0) > 0 || (inventory.xp[item.id] ?? 0) >= item.maxXp;
-    };
-  }, [inventory, mastery]);
-
-  const rows = useMemo(() => {
-    if (!relicDb || !prices) return [];
-    return relicDb.relics.map((relic) => {
-      const owned = inventory?.relics?.[relic.id] ?? {};
+  const rows = createMemo(() => {
+    const r = ri();
+    if (!r.ready) return [];
+    const inv = game.inventory;
+    return r.relicDb.relics.map((relic) => {
+      const owned = inv?.relics?.[relic.id] ?? {};
       const total = Object.values(owned).reduce((a, b) => a + b, 0);
       const rewards = relic.rewards[prefs.refinement] ?? relic.rewards.intact ?? [];
       return {
@@ -126,146 +84,155 @@ export default function Relics() {
         owned,
         total,
         rewards,
-        plat: expectedValue(rewards, (r) => metaOf(r).price ?? 0, prefs.squad),
-        ducats: expectedValue(rewards, (r) => metaOf(r).ducats ?? 0, prefs.squad),
+        plat: expectedValue(rewards, (w) => r.priceOf(w.name) ?? 0, prefs.squad),
+        ducats: expectedValue(rewards, (w) => r.info(w.name).ducats ?? 0, prefs.squad),
       };
     });
-  }, [relicDb, prices, inventory, prefs.refinement, prefs.squad, metaOf]);
+  });
 
-  const q = query.trim().toLowerCase();
-  const shown = useMemo(() => {
+  const shown = createMemo(() => {
+    const q = query().trim().toLowerCase();
     const cmp = {
       plat: (a, b) => b.plat - a.plat,
       ducats: (a, b) => b.ducats - a.ducats,
       count: (a, b) => b.total - a.total,
       name: (a, b) => a.relic.name.localeCompare(b.relic.name),
     }[prefs.sort];
-    return rows
+    return rows()
       .filter((r) => prefs.tier === 'all' || r.relic.tier === prefs.tier)
       .filter((r) => !prefs.onlyOwned || r.total > 0)
       .filter((r) => !q || r.relic.name.toLowerCase().includes(q) || r.rewards.some((w) => w.name.toLowerCase().includes(q)))
       .sort(cmp);
-  }, [rows, prefs, q]);
-
-  const ownedTotal = rows.reduce((a, r) => a + r.total, 0);
-  const ownedKinds = rows.filter((r) => r.total > 0).length;
-
-  const openReward = (r) => {
-    const entry = r.id ? mastery?.index.get(r.id) : null;
-    const m = r.slug ? market?.get(r.slug) : null;
-    if (entry) setDetails({ item: entry.item, partId: entry.part?.id });
-    else if (m) setDetails({ marketItem: m });
-  };
-
-  if (error) return <div className="empty">{tr('Relikt-Daten nicht ladbar: {e}', { e: error })}</div>;
-  if (!relicDb || !prices) return <div className="empty">{tr('Lade Relikte und Preise …')}</div>;
+  });
+  const ownedTotal = () => rows().reduce((a, r) => a + r.total, 0);
+  const ownedKinds = () => rows().filter((r) => r.total > 0).length;
 
   return (
-    <div className="page">
-      <div className="toolbar">
-        <div className="filter-pills">
-          <button className={prefs.tier === 'all' ? 'active' : ''} onClick={() => setPref('tier', 'all')}>
-            <All size={16} /> {prefs.tier === 'all' && <span>{tr('Alle')}</span>}
-          </button>
-          {TIERS.map((t) => (
-            <button key={t} className={prefs.tier === t ? 'active' : ''} onClick={() => setPref('tier', t)} title={t}>
-              <RelicIcon tier={t} size={24} />
-              {prefs.tier === t && <span>{t}</span>}
+    <Switch>
+      <Match when={ri().error}>
+        <div class="empty">{t('Relikt-Daten nicht ladbar: {e}', { e: ri().error })}</div>
+      </Match>
+      <Match when={!ri().ready}>
+        <div class="empty">{t('Lade Relikte und Preise …')}</div>
+      </Match>
+      <Match when={true}>
+        <div class="page">
+          <div class="toolbar">
+            <div class="filter-pills">
+              <button classList={{ active: prefs.tier === 'all' }} onClick={() => setPref('tier', 'all')}>
+                <All size={16} />
+                <Show when={prefs.tier === 'all'}>
+                  <span>{t('Alle')}</span>
+                </Show>
+              </button>
+              <For each={TIERS}>
+                {(tier) => (
+                  <button classList={{ active: prefs.tier === tier }} onClick={() => setPref('tier', tier)} title={tier}>
+                    <RelicIcon tier={tier} size={24} />
+                    <Show when={prefs.tier === tier}>
+                      <span>{tier}</span>
+                    </Show>
+                  </button>
+                )}
+              </For>
+            </div>
+            <div class="toolbar-right">
+              <label class="search">
+                <Search size={15} />
+                <input
+                  value={query()}
+                  onInput={(e) => {
+                    setQuery(e.currentTarget.value);
+                    setLimit(PAGE);
+                  }}
+                  placeholder={t('Relikt oder Teil')}
+                />
+              </label>
+              <label class="select">
+                <ArrowDownUp size={15} />
+                <select value={prefs.sort} onChange={(e) => setPref('sort', e.currentTarget.value)}>
+                  <For each={Object.entries(SORTS)}>{([id, label]) => <option value={id}>{t(label)}</option>}</For>
+                </select>
+              </label>
+              <label class="select">
+                <select value={prefs.refinement} onChange={(e) => setPref('refinement', e.currentTarget.value)} title={t('Veredelung für die Berechnung')}>
+                  <For each={REFINEMENTS}>{([id, label]) => <option value={id}>{label}</option>}</For>
+                </select>
+              </label>
+              <label class="select" title={t('Squad-Größe (Radshare)')}>
+                <Users size={15} />
+                <select value={prefs.squad} onChange={(e) => setPref('squad', Number(e.currentTarget.value))}>
+                  <For each={[1, 2, 3, 4]}>{(n) => <option value={n}>{n}</option>}</For>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="card-grid relic-grid">
+            <For each={shown().slice(0, limit())}>
+              {(row) => (
+                <article class="relic-card">
+                  <div class="relic-img">
+                    <Show when={row.relic.image}>
+                      <img src={row.relic.image} alt="" loading="lazy" />
+                    </Show>
+                    <span class="relic-count">
+                      <Show when={row.relic.vaulted}>
+                        <Lock size={11} />
+                      </Show>{' '}
+                      x{row.total}
+                    </span>
+                  </div>
+                  <div class="relic-info">
+                    <h3>{row.relic.name}</h3>
+                    <div class="relic-owned">
+                      <For each={REFINEMENTS.filter(([id]) => row.owned[id])}>
+                        {([id, label]) => (
+                          <span>
+                            {row.owned[id]}x {label}
+                          </span>
+                        )}
+                      </For>
+                      <Show when={row.total === 0}>
+                        <span class="muted">{t('nicht im Besitz')}</span>
+                      </Show>
+                    </div>
+                    <div class="relic-values">
+                      <span title={t('Erwarteter Platin-Wert pro Öffnung')}>
+                        <Plat /> {row.plat.toFixed(1)}
+                      </span>
+                      <span title={t('Erwartete Ducats pro Öffnung')}>
+                        <Ducat /> {row.ducats.toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="rewards">
+                    <For each={row.rewards}>{(w) => <RewardIcon reward={w} ri={ri()} onOpen={openReward} />}</For>
+                  </div>
+                </article>
+              )}
+            </For>
+          </div>
+          <Show when={shown().length > limit()}>
+            <button class="btn more" onClick={() => setLimit((l) => l + PAGE)}>
+              {t('Mehr anzeigen ({n} weitere)', { n: shown().length - limit() })}
             </button>
-          ))}
+          </Show>
+          <Show when={shown().length === 0}>
+            <div class="empty">{t('Keine Relikte in dieser Ansicht.')}</div>
+          </Show>
+
+          <div class="totals">
+            <label class="check">
+              <input type="checkbox" checked={prefs.onlyOwned} onChange={(e) => setPref('onlyOwned', e.currentTarget.checked)} /> {t('Nur eigene')}
+            </label>
+            <span title={t('Verschiedene Relikte / Relikte insgesamt')}>{t('{a} Sorten · {b} Stück', { a: ownedKinds(), b: ownedTotal() })}</span>
+          </div>
+          <Show when={details()}>
+            <ItemDetails item={details().item} partId={details().partId} marketItem={details().marketItem} onClose={() => setDetails(null)} />
+          </Show>
         </div>
-        <div className="toolbar-right">
-          <label className="search">
-            <Search size={15} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tr('Relikt oder Teil')} />
-          </label>
-          <label className="select">
-            <ArrowDownUp size={15} />
-            <select value={prefs.sort} onChange={(e) => setPref('sort', e.target.value)}>
-              {Object.entries(SORTS).map(([id, label]) => (
-                <option key={id} value={id}>
-                  {tr(label)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="select">
-            <select value={prefs.refinement} onChange={(e) => setPref('refinement', e.target.value)} title={tr('Veredelung für die Berechnung')}>
-              {REFINEMENTS.map(([id, label]) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="select" title={tr('Squad-Größe (Radshare)')}>
-            <Users size={15} />
-            <select value={prefs.squad} onChange={(e) => setPref('squad', Number(e.target.value))}>
-              {[1, 2, 3, 4].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <div className="card-grid relic-grid">
-        {shown.slice(0, limit).map((row) => (
-          <article key={row.relic.id} className="relic-card">
-            <div className="relic-img">
-              {row.relic.image && <img src={row.relic.image} alt="" loading="lazy" />}
-              <span className="relic-count">
-                {row.relic.vaulted && <Lock size={11} />} x{row.total}
-              </span>
-            </div>
-            <div className="relic-info">
-              <h3>{row.relic.name}</h3>
-              <div className="relic-owned">
-                {REFINEMENTS.filter(([id]) => row.owned[id]).map(([id, label]) => (
-                  <span key={id}>
-                    {row.owned[id]}x {label}
-                  </span>
-                ))}
-                {row.total === 0 && <span className="muted">{tr('nicht im Besitz')}</span>}
-              </div>
-              <div className="relic-values">
-                <span title={tr('Erwarteter Platin-Wert pro Öffnung')}>
-                  <Plat /> {row.plat.toFixed(1)}
-                </span>
-                <span title={tr('Erwartete Ducats pro Öffnung')}>
-                  <Ducat /> {row.ducats.toFixed(1)}
-                </span>
-              </div>
-            </div>
-            <div className="rewards">
-              {row.rewards.map((r) => (
-                <RewardIcon key={r.name} reward={r} meta={metaOf(r)} have={haveOf(r)} onOpen={() => openReward(r)} />
-              ))}
-            </div>
-          </article>
-        ))}
-      </div>
-      {shown.length > limit && (
-        <button className="btn more" onClick={() => setLimit((l) => l + PAGE)}>
-          {tr('Mehr anzeigen ({n} weitere)', { n: shown.length - limit })}
-        </button>
-      )}
-      {shown.length === 0 && <div className="empty">{tr('Keine Relikte in dieser Ansicht.')}</div>}
-
-      <div className="totals">
-        <label className="check">
-          <input type="checkbox" checked={prefs.onlyOwned} onChange={(e) => setPref('onlyOwned', e.target.checked)} /> {tr('Nur eigene')}
-        </label>
-        <span title={tr('Verschiedene Relikte / Relikte insgesamt')}>
-          {tr('{a} Sorten · {b} Stück', { a: ownedKinds, b: ownedTotal })}
-        </span>
-      </div>
-
-      {details && (
-        <ItemDetails item={details.item} partId={details.partId} marketItem={details.marketItem} onClose={() => setDetails(null)} />
-      )}
-    </div>
+      </Match>
+    </Switch>
   );
 }

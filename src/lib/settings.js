@@ -1,22 +1,22 @@
-import { useEffect, useState } from 'react';
-import { isElectron, load, save } from './api.js';
-
-// Einstellungen: in Electron aus settings.json (Main-Prozess, für alle Fenster gleich),
-// im Browser-Testmodus aus localStorage.
+// Einstellungen: in der Desktop-App aus settings.json (Rust-Teil, für alle Fenster gleich),
+// im Browser-Testmodus aus localStorage. `settings` ist ein reaktiver Solid-Store:
+// wer settings.language liest, wird bei Änderungen automatisch neu gezeichnet.
+import { createStore, reconcile } from 'solid-js/store';
+import { call, isTauri, load, on, save } from './ipc.js';
 
 export const DEFAULTS = {
   language: 'de',
   theme: 'default',
   accent: '',
-  colors: {}, // einzelne Farben überschreiben: { bg: '#000000', … }
-  radius: 12, // Eckenrundung in px
-  uiScale: 1, // Größe der ganzen Oberfläche
+  colors: {},
+  radius: 12,
+  uiScale: 1,
   confirmClose: true,
   hideFounders: false,
   secondMonitor: false,
-  autoSync: false, // automatisch mit dem Spiel synchronisieren
-  autoSyncMission: true, // … nach jeder Mission
-  autoSyncMinutes: 0, // … alle X Minuten (0 = aus, sonst 5–120)
+  autoSync: false,
+  autoSyncMission: true,
+  autoSyncMinutes: 0,
   rewardsOverlay: true,
   selectionOverlay: true,
   walletOnOverlay: true,
@@ -30,53 +30,43 @@ export const DEFAULTS = {
   notifyBaroDucats: true,
   notifySortie: false,
   notifyArchon: false,
-  notifyFoundry: true, // Foundry-Bauauftrag fertig (src/lib/foundry.js)
-  notifyPriceAlerts: true, // Preis-Alarme (src/lib/priceAlerts.js)
-  priceAlertMinutes: 10, // 5 / 10 / 15 / 30
+  notifyFoundry: true,
+  notifyPriceAlerts: true,
+  priceAlertMinutes: 10,
+  discordRpc: false,
+  discordAppId: '',
+  discordShowMr: true,
+  discordShowActivity: true,
+  discordShowName: false,
+  discordIdle: false,
+  discordButton: true,
+  discordHooks: { priceAlert: true, foundry: true, baro: true, world: false },
 };
 export const HOTKEYS = ['Home', 'End', 'Insert', 'PageUp', 'PageDown', 'F9', 'F10', 'F11', 'F12', 'ScrollLock', 'Pause'];
-// Beschriftung wie auf einer deutschen Tastatur
-export const KEY_LABELS = { Home: 'Pos1', End: 'Ende', Insert: 'Einfg', PageUp: 'Bild ↑', PageDown: 'Bild ↓', ScrollLock: 'Rollen' };
-export const keyLabel = (k, language = current.language) => (language === 'de' ? KEY_LABELS[k] : null) ?? k;
+const KEY_LABELS = { Home: 'Pos1', End: 'Ende', Insert: 'Einfg', PageUp: 'Bild ↑', PageDown: 'Bild ↓', ScrollLock: 'Rollen' };
+export const keyLabel = (k, language) => (language === 'de' ? KEY_LABELS[k] : null) ?? k;
 
-const KEY = 'td.settings.v1';
-let current = { ...DEFAULTS, ...(isElectron ? {} : load(KEY, {})) };
-const listeners = new Set();
-const emit = () => listeners.forEach((fn) => fn(current));
+const KEY = 'cm.settings.v1';
+const [settings, setStore] = createStore({ ...DEFAULTS, ...(isTauri ? {} : load(KEY, {})) });
+export { settings };
 
-if (isElectron) {
-  window.wf.getSettings?.().then(({ values }) => {
-    current = { ...DEFAULTS, ...values };
-    emit();
-  });
-  window.wf.onSettings?.((values) => {
-    current = { ...DEFAULTS, ...values };
-    emit();
-  });
-}
+const apply = (values) => setStore(reconcile({ ...DEFAULTS, ...values }));
 
-export function getSettings() {
-  return current;
+/** Lädt die Einstellungen aus dem Rust-Teil (vor dem ersten Zeichnen aufrufen). */
+export async function initSettings() {
+  if (!isTauri) return;
+  const { values } = await call('settings_get');
+  apply(values);
+  on('settings-changed', apply);
 }
 
 export async function setSettings(patch) {
-  if (isElectron) {
-    current = { ...DEFAULTS, ...(await window.wf.setSettings(patch)) };
+  if (isTauri) {
+    apply(await call('settings_set', { patch }));
   } else {
-    current = { ...current, ...patch };
-    save(KEY, current);
+    setStore(patch);
+    save(KEY, { ...settings });
   }
-  emit();
-}
-
-export function useSettings() {
-  const [s, setS] = useState(current);
-  useEffect(() => {
-    listeners.add(setS);
-    setS(current);
-    return () => listeners.delete(setS);
-  }, []);
-  return s;
 }
 
 // Founders-Programm: nie wieder erhältlich – auf Wunsch überall ausblenden

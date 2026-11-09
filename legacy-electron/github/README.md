@@ -29,16 +29,16 @@ fissure missions together with their platinum and ducat value.
 
 | | Section | What it does |
 |:-:|---|---|
-| <img src="assets/icons/foundry.svg" width="20"> | **Foundry** | Every frame, weapon and companion with its components – see at a glance what you own, what's missing and what's tradeable. |
+| <img src="assets/icons/foundry.svg" width="20"> | **Foundry** | Every frame, weapon and companion with its components – see at a glance what you own, what's missing and what's tradeable. Shows what's currently building with a countdown and notifies you when it's done. |
 | <img src="assets/icons/mastery.svg" width="20"> | **Mastery Helper** | A **roadmap to your next Mastery Rank**: how much XP you still need, which items get you there fastest (starting with what you already own) and when it's time for your rank test. Plus a to-do list that shows which relics drop the parts you're missing. |
 | <img src="assets/icons/inventory.svg" width="20"> | **Inventory** | All your tradeable items – prime parts, mods, relics, arcanes – with live platinum prices, ducat value and the total worth of your account. Click an item to sell it: copy a ready-made WTS message or open it on warframe.market. |
 | <img src="assets/icons/relics.svg" width="20"> | **Relic Planner** | Expected platinum and ducats per opening for every relic you own, by refinement and squad size – so you know which ones are worth cracking. |
 | <img src="assets/icons/builds.svg" width="20"> | **Builds** | The most popular builds from overframe.gg with full mod layout, guide and mod prices. Save favorites and finish builds with a checklist. |
 | <img src="assets/icons/rivens.svg" width="20"> | **Rivens** | Your rivens with stats at rank 8, disposition, roll luck, kuva spent and what similar rivens sell for. |
 | <img src="assets/icons/market.svg" width="20"> | **Warframe Market** | Live buy and sell offers from players who are online right now, split by mod rank – copy the whisper message with one click. |
-| <img src="assets/icons/trade.svg" width="20"> | **Trading** | Finds your spare prime parts and duplicates: what's worth selling for platinum (with ready-made chat messages) and what to trade to Baro Ki'Teer for ducats. |
+| <img src="assets/icons/trade.svg" width="20"> | **Trading** | Finds your spare prime parts and duplicates: what's worth selling for platinum (with ready-made chat messages) and what to trade to Baro Ki'Teer for ducats. Set **price alerts** and get notified when someone sells an item below your price – or wants to buy it above it. |
 | <img src="assets/icons/stats.svg" width="20"> | **Statistics** | Charts of your platinum, credits, endo, ducats, kuva and more over time, plus a log of every fissure reward with average platinum per run. |
-| <img src="assets/icons/timer.svg" width="20"> | **Timers** | Day/night cycles, void fissures, void storms and Baro Ki'Teer – live, with optional Windows notifications. |
+| <img src="assets/icons/timer.svg" width="20"> | **Timers** | Day/night cycles, void fissures, void storms and Baro Ki'Teer – live, with optional Windows notifications. Plus today's sortie, the weekly archon hunt and nightwave challenges to tick off. |
 | <img src="assets/icons/overlay.svg" width="20"> | **In-game overlay** | After a fissure mission it shows the four rewards with platinum and ducat value right inside the game, and gives recommendations in the relic selection. |
 
 The app is available in **English** and **German**.
@@ -58,28 +58,33 @@ The app is available in **English** and **German**.
 
 ## 🛠️ Build from source
 
-Cephalon Merlin is open source (MIT). It is an Electron 33 + React 18 + Vite 5 app.
-You need [Node.js](https://nodejs.org) 20 or newer and Windows (the game sync and the overlay use Windows APIs).
+Cephalon Merlin is open source (MIT). Since **v0.2.0** it is written in **Rust** with [Tauri 2](https://tauri.app) and a **SolidJS** UI:
+game sync, screen capture + OCR for the overlay, the warframe.market request queue and all background jobs run natively in Rust,
+the UI uses the WebView2 that ships with Windows. That makes the download ~5.6 MB instead of ~70 MB, with less RAM and a faster start.
+
+Requirements (Windows 10/11): [Node.js](https://nodejs.org) 20+, [Rust](https://rustup.rs) stable (MSVC toolchain),
+Visual Studio 2022 Build Tools with "Desktop development with C++", WebView2 (preinstalled on Windows 11).
 
 ```bash
 git clone https://github.com/TvMerlinTv/Cephalon-Merlin.git
 cd Cephalon-Merlin
 npm install
-npm run dev      # Electron app with hot reload
-npm run web      # UI only, in the browser (http://127.0.0.1:5173)
-npm run dist     # portable .exe in release/
+npm run app        # tauri dev with hot reload
+npx tauri build    # release build in src-tauri/target/release/
 ```
 
-Optional: `node build/make-overframe-mods.cjs` generates `src/lib/overframeMods.json`, the mapping of
+Optional: `node legacy-electron/build/make-overframe-mods.cjs` generates `src/lib/overframeMods.json`, the mapping of
 Overframe mod IDs that the Builds page needs to show mod loadouts. It is read from overframe.gg's website
 and therefore not part of this repository; without it the app works, builds just show no mods.
 
 | Folder | Content |
 | --- | --- |
-| `electron/` | Main process: game sync, overlay + OCR, world state, auto-sync, updater, settings |
-| `src/` | React UI (pages, components, `lib/` for data and helpers) |
-| `build/` | Scripts: icon, riven/Overframe data, preview, release |
-| `github/` | Source of this page |
+| `src-tauri/` | Rust backend: game sync, overlay + OCR, world state, auto-sync, alerts, Discord, updater, settings |
+| `src/` | SolidJS UI (pages, components, `lib/` for data and helpers) |
+| `scripts/` | Preview build helper |
+| `legacy-electron/` | The previous Electron version (v0.1.x), kept for reference |
+
+Your data lives in `%APPDATA%\Cephalon Merlin RS`; on first start it is copied over from the 0.1.x folder `%APPDATA%\Cephalon Merlin`.
 
 Pull requests and issues are welcome.
 

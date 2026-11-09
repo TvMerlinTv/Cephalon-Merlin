@@ -1,0 +1,190 @@
+/* Ergänzungen der Rust-Version (Rest: styles.css aus der Electron-Version) */
+.badge-rs {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+}
+.modal.confirm-close {
+  width: min(440px, 92vw);
+  padding: 18px 20px;
+}
+.confirm-close p {
+  margin: 4px 0 12px;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+.set-line code,
+.muted code {
+  font-size: 12px;
+  word-break: break-all;
+}
+.modal.inv-details {
+  width: min(560px, 94vw);
+  padding: 16px 20px 20px;
+}
+.inv-details-body {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+.inv-details-body > img {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  background: var(--bg-2);
+  border-radius: var(--radius);
+}
+.inv-details-body p {
+  margin: 0 0 8px;
+}
+.inv-prices {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+}
+.inv-prices span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+}
+.inv-prices .wts {
+  background: var(--red);
+  color: var(--red-text);
+}
+.inv-prices .wtb {
+  background: var(--green);
+  color: var(--green-text);
+}
+.world-page .world-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.world-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .world-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.titlebar .panel-toggle {
+  -webkit-app-region: no-drag;
+}
+/* Mastery: was zum Bauen noch fehlt (Material-Symbole mit hast/brauchst) */
+.build-needs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.bn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--err) 14%, var(--bg-2));
+  border: 1px solid color-mix(in srgb, var(--err) 40%, transparent);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bn-chip img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.bn-chip.bn-build {
+  background: color-mix(in srgb, var(--warn) 14%, var(--bg-2));
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+  padding-left: 7px;
+}
+.bn-click {
+  cursor: pointer;
+}
+.bn-chip.bn-click:hover,
+.res-chip.bn-click:hover {
+  filter: brightness(1.25);
+}
+.res-list li.bn-click:hover {
+  background: var(--card-hover);
+}
+.modal.material-info {
+  width: min(560px, 94vw);
+  padding: 16px 20px 20px;
+}
+.mi-top {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.mi-top h2 {
+  margin: 0 0 4px;
+}
+.mi-top .ok {
+  color: var(--ok);
+}
+.mi-top .err {
+  color: var(--err);
+}
+.mi-img {
+  width: 84px;
+  height: 84px;
+  background: var(--bg-2);
+  border-radius: var(--radius);
+  display: grid;
+  place-items: center;
+}
+.mi-img img {
+  max-width: 76px;
+  max-height: 76px;
+}
+.mi-desc {
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+.mi-actions {
+  margin-top: 14px;
+}
+/* Builds: Liste schmaler, Details bekommen den Platz; bei wenig Breite untereinander */
+.page.bld {
+  container-type: inline-size;
+}
+.bld-cols {
+  grid-template-columns: minmax(260px, 36%) minmax(0, 1fr);
+}
+@container (max-width: 820px) {
+  .bld-cols {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(150px, 34%) minmax(0, 1fr);
+  }
+}
+.bld-detail-head {
+  flex-wrap: wrap;
+}
+.bld-detail-head > div:first-child {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.bld-detail-actions {
+  flex-wrap: wrap;
+}

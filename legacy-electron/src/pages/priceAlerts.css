@@ -1,0 +1,106 @@
+/* ---------- Preis-Alarme (Item-Details + Handel → Preis-Alarme) ---------- */
+.pa-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.pa-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pa-btn.has {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.pa-count {
+  background: var(--warn);
+  color: var(--bg);
+  border-radius: 99px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.pa-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+}
+.pa-pop .seg button {
+  flex: 1;
+  justify-content: center;
+  white-space: nowrap;
+}
+.pa-pop p {
+  margin: 0;
+}
+.pa-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pa-target span {
+  color: var(--muted);
+  flex: 1;
+}
+.pa-target input {
+  width: 90px;
+}
+.pa-hint {
+  flex: 1;
+  margin: 0;
+}
+.pa-item {
+  color: var(--text);
+  text-align: left;
+}
+.pa-item:hover {
+  color: var(--accent-2);
+}
+.pa-table tr.pa-off td {
+  opacity: 0.5;
+}
+.pa-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+.pa-status.hit {
+  color: var(--ok);
+}
+.pa-status.wait {
+  color: var(--muted);
+}
+.pa-status.err {
+  color: var(--err);
+}
+.pa-status.off {
+  color: var(--muted);
+}
+.pa-actions {
+  white-space: nowrap;
+  text-align: right;
+}
+.pa-actions .icon-btn {
+  display: inline-flex;
+  vertical-align: middle;
+}
+.pa-item .trd-tag {
+  white-space: nowrap;
+}
+.trd-table-wrap:has(.pa-table) {
+  overflow-x: auto;
+}
+.pa-actions .pa-on {
+  color: var(--ok);
+}

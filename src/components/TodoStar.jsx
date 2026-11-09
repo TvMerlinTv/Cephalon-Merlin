@@ -1,21 +1,22 @@
-import { Star } from 'lucide-react';
-import { toggleTodo, useTodo } from '../lib/todo.js';
+import { Star } from 'lucide-solid';
+import { todo, toggleTodo } from '../lib/gamedb.js';
+import { t } from '../lib/i18n.js';
 
 /** Stern zum Hinzufügen/Entfernen eines Items auf der To-Do-Liste. */
-export default function TodoStar({ id, size = 18 }) {
-  const todo = useTodo();
-  const on = todo.includes(id);
+export default function TodoStar(props) {
+  const on = () => todo().includes(props.id);
   return (
     <button
-      className={`todo-star ${on ? 'on' : ''}`}
+      class="todo-star"
+      classList={{ on: on() }}
       onClick={(e) => {
         e.stopPropagation();
-        toggleTodo(id);
+        toggleTodo(props.id);
       }}
-      title={on ? 'Von der To-Do-Liste entfernen' : 'Auf die To-Do-Liste setzen'}
-      aria-pressed={on}
+      title={t(on() ? 'Von der To-Do-Liste entfernen' : 'Auf die To-Do-Liste setzen')}
+      aria-pressed={on()}
     >
-      <Star size={size} fill={on ? 'currentColor' : 'none'} />
+      <Star size={props.size ?? 18} fill={on() ? 'currentColor' : 'none'} />
     </button>
   );
 }

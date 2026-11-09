@@ -3987,3 +3987,82 @@ html.overlay-mode body {
   width: 36px;
   height: 36px;
 }
+
+.sync-since {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Einstellungen → Discord ---------- */
+.dc-input {
+  width: 220px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+}
+.dc-input.wide {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+.dc-input.bad {
+  border-color: var(--err);
+}
+.dc-err {
+  color: var(--err);
+}
+.dc-tone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.dc-tone.ok {
+  color: var(--ok);
+}
+.dc-tone.warn {
+  color: var(--warn);
+}
+.dc-tone.err {
+  color: var(--err);
+}
+.dc-guide {
+  margin: 10px 4px 4px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-2);
+  font-size: 14px;
+}
+.dc-guide summary {
+  cursor: pointer;
+}
+.dc-guide ol {
+  margin: 8px 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.dc-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dc-masked {
+  color: var(--muted);
+  font-size: 12.5px;
+  word-break: break-all;
+}
+.dc-msg {
+  margin: 8px 4px;
+  font-size: 13.5px;
+}
+.dc-msg.ok {
+  color: var(--ok);
+}
+.dc-msg.err {
+  color: var(--err);
+}

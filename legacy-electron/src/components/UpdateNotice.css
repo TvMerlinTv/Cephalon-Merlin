@@ -1,0 +1,78 @@
+/* ---------- Selbst-Update (UpdateNotice.jsx) ---------- */
+.badge-update {
+  background: #1d3f5c;
+  color: #bfe3ff;
+  -webkit-app-region: no-drag;
+}
+.badge-update:hover {
+  background: #255176;
+}
+.update-dialog h4 {
+  margin: 12px 0 6px;
+  font-size: 13px;
+}
+.update-notes {
+  margin: 0;
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.update-progress {
+  margin-top: 12px;
+  display: grid;
+  gap: 4px;
+}
+.update-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--card);
+  overflow: hidden;
+}
+.update-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent-2);
+  transition: width 0.15s;
+}
+.update-installing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.update-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+.update-check {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+.update-check > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+.update-check .link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--accent-2);
+}
+.update-check .link-btn:hover {
+  text-decoration: underline;
+}
