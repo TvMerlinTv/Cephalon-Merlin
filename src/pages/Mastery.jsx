@@ -10,7 +10,7 @@ import ItemDetails from '../components/ItemDetails.jsx';
 import TodoRelics from '../components/TodoRelics.jsx';
 import MasteryRoadmap from '../components/MasteryRoadmap.jsx';
 import { blueprintLabel } from '../components/BuildNeeds.jsx';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 import { materialClick } from '../components/MaterialInfo.jsx';
 
 const PAGE = 48;
@@ -425,7 +425,7 @@ export default function Mastery() {
   return (
     <Switch>
       <Match when={db.error}>
-        <div class="empty">{t('Item-Datenbank nicht ladbar: {e}', { e: db.error.message })}</div>
+        <div class="empty">{t('Item-Datenbank nicht ladbar: {e}', { e: errText(db.error) })}</div>
       </Match>
       <Match when={!db()}>
         <div class="empty">{t('Lade Item-Datenbank (WFCD) … beim ersten Mal ein paar Sekunden.')}</div>

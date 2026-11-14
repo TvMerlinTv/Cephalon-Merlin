@@ -4,7 +4,7 @@ import { createResource, createSignal, For, onCleanup, onMount, Show } from 'sol
 import { Dynamic } from 'solid-js/web';
 import { X, Check as CheckIcon, RotateCcw, FolderOpen, DatabaseBackup, BellRing, Gamepad2, RefreshCw, ExternalLink, Webhook, Trash2, Send } from 'lucide-solid';
 import { settings, setSettings, HOTKEYS, keyLabel } from '../lib/settings.js';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 import { call, isTauri, on, openExternal } from '../lib/ipc.js';
 import { THEMES, COLOR_KEYS, resolveColors, createDraft } from '../lib/theme.js';
 import { UpdateCheck } from './UpdateNotice.jsx';
@@ -36,7 +36,7 @@ function DataSection() {
       setMsg({ ok: true, text: t('{n} Dateien übernommen. Die bisherigen liegen im Ordner „backup“.', { n: r.copied.length }) });
       refetch();
     } catch (e) {
-      setMsg({ ok: false, text: e.message });
+      setMsg({ ok: false, text: errText(e) });
     } finally {
       setBusy(false);
     }
@@ -410,7 +410,7 @@ function Discord() {
       setMsg(r.ok ? { ok: true, text: t(okText) } : { ok: false, text: t(r.error) });
       return r;
     } catch (e) {
-      setMsg({ ok: false, text: t(e.message) });
+      setMsg({ ok: false, text: errText(e) });
     } finally {
       setBusy(false);
     }
@@ -457,7 +457,7 @@ function Discord() {
           <b class={`dc-tone ${tone()[1]}`}>
             <Gamepad2 size={14} /> {t(tone()[0])}
             {status().state === 'connected' && status().user ? ` – ${status().user}` : ''}
-            {status().state === 'error' && status().message ? `: ${t(status().message)}` : ''}
+            {status().state === 'error' && status().message ? `: ${errText(status().message)}` : ''}
           </b>
           <Show when={isTauri && !rpcOff() && ['noDiscord', 'error'].includes(status().state)}>
             <button class="btn" onClick={() => call('discord_retry').then(setStatus).catch(() => {})}>

@@ -272,10 +272,10 @@ struct Presence {
     last_sent_at: Option<Instant>,
     game_running: bool,
     game_start: i64,
-    parse: Parse,
-    log_pos: Option<u64>,
 }
 static PRESENCE: Mutex<Option<Presence>> = Mutex::const_new(None);
+/// Aktueller Ort aus EE.log (gemeinsamer Leser in eelog.rs, wird laufend mitgeführt).
+static PLACE: StdMutex<Parse> = StdMutex::new(Parse { pending: None, place: None });
 static STATUS: StdMutex<Option<Value>> = StdMutex::new(None);
 static APP_START: std::sync::OnceLock<i64> = std::sync::OnceLock::new();
 
@@ -293,43 +293,28 @@ fn set_status(app: &AppHandle, p: &mut Presence, next: Value) {
     }
 }
 
-fn ee_log() -> Option<PathBuf> {
-    std::env::var_os("LOCALAPPDATA").map(|l| PathBuf::from(l).join("Warframe").join("EE.log"))
-}
-
-/// Neue Zeilen aus EE.log lesen (beim ersten Mal das ganze Log, um den aktuellen Ort zu kennen).
-fn read_log(p: &mut Presence) -> bool {
-    use std::io::{Read, Seek, SeekFrom};
-    let Some(file) = ee_log() else { return false };
-    let Ok(meta) = std::fs::metadata(&file) else { return false };
-    let size = meta.len();
-    let start = match p.log_pos {
-        Some(pos) if pos <= size => pos,
-        _ => {
-            p.parse = Parse::default();
-            0
+/// Ort mitführen: Stand aus dem bisherigen Log (Reset, auch nach Spielneustart), dann jede neue Zeile.
+fn follow_place() {
+    let mut rx = crate::eelog::subscribe();
+    tauri::async_runtime::spawn(async move {
+        let relevant = |l: &str| l.contains("ission name") || l.contains("successfully connected");
+        while let Some(ev) = crate::eelog::recv(&mut rx).await {
+            let Ok(mut st) = PLACE.lock() else { continue };
+            match ev.as_ref() {
+                crate::eelog::Event::Reset(text) => {
+                    *st = Parse::default();
+                    for l in text.lines().filter(|l| relevant(l)) {
+                        parse_line(&mut st, l);
+                    }
+                }
+                crate::eelog::Event::Lines(lines) => {
+                    for l in lines.iter().filter(|l| relevant(l)) {
+                        parse_line(&mut st, l);
+                    }
+                }
+            }
         }
-    };
-    if start == size {
-        return false;
-    }
-    let Ok(mut f) = std::fs::File::open(&file) else { return false };
-    if f.seek(SeekFrom::Start(start)).is_err() {
-        return false;
-    }
-    let mut buf = Vec::new();
-    let _ = f.take(size - start).read_to_end(&mut buf);
-    // Nur bis zur letzten vollständigen Zeile
-    let end = buf.iter().rposition(|&b| b == b'\n').map(|i| i + 1).unwrap_or(0);
-    p.log_pos = Some(start + end as u64);
-    let text: String = buf[..end].iter().map(|&b| b as char).collect();
-    let mut changed = false;
-    for line in text.lines() {
-        if line.contains("ission name") || line.contains("successfully connected") {
-            changed |= parse_line(&mut p.parse, line);
-        }
-    }
-    changed
+    });
 }
 
 /// MR aus inventory.json und Spielername aus player.json.
@@ -368,7 +353,7 @@ fn build_activity(p: &Presence, s: &Value, data: &Path) -> Option<Value> {
             }
         }
         parts.push("Cephalon Merlin".into());
-        let state = if flag("discordShowActivity", true) { place_text(p.parse.place.as_ref(), en) } else { text(en, "playing", "") };
+        let state = if flag("discordShowActivity", true) { place_text(PLACE.lock().ok().and_then(|st| st.place.clone()).as_ref(), en) } else { text(en, "playing", "") };
         json!({ "details": parts.join(" · "), "state": state, "timestamps": { "start": if p.game_start > 0 { p.game_start } else { now_ms() } } })
     };
     for k in ["details", "state"] {
@@ -397,8 +382,6 @@ async fn tick(app: &AppHandle) {
         last_sent_at: None,
         game_running: false,
         game_start: 0,
-        parse: Parse::default(),
-        log_pos: None,
     });
     let app_id = s["discordAppId"].as_str().unwrap_or("").to_string();
     #[cfg(windows)]
@@ -420,19 +403,15 @@ async fn tick(app: &AppHandle) {
     let running = crate::game::reader::game_running();
     if running && !p.game_running {
         // Startzeit: EE.log wird beim Spielstart neu angelegt
-        let born = ee_log()
+        let born = crate::eelog::path()
             .and_then(|f| std::fs::metadata(f).ok())
             .and_then(|m| m.created().ok())
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_millis() as i64)
             .filter(|&b| b > now_ms() - 12 * 3_600_000 && b <= now_ms());
         p.game_start = born.unwrap_or_else(now_ms);
-        p.log_pos = None;
     }
     p.game_running = running;
-    if running && s["discordShowActivity"].as_bool().unwrap_or(true) {
-        read_log(p);
-    }
     #[cfg(windows)]
     {
         if p.conn.as_ref().is_some_and(|c| !c.is_alive()) {
@@ -505,6 +484,7 @@ async fn tick(app: &AppHandle) {
 
 pub fn start(app: AppHandle) {
     let _ = APP_START.set(now_ms());
+    follow_place();
     tauri::async_runtime::spawn(async move {
         loop {
             tick(&app).await;

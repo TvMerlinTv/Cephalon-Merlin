@@ -9,7 +9,7 @@ import { world, countdown, now } from '../lib/world.js';
 import { spareParts, spareSets, wtsMessages, copyToClipboard, CHAT_LIMIT } from '../lib/trade.js';
 import { load, save } from '../lib/ipc.js';
 import { Plat, Ducat } from '../components/Icons.jsx';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 import PriceAlerts from './PriceAlerts.jsx';
 import { alerts } from '../lib/priceAlerts.js';
 import './trade.css';
@@ -27,7 +27,7 @@ function useTradeData() {
     return spareParts(db(), game.inventory).map((e) => {
       const mi = m?.byRef.get(e.id) ?? m?.byRef.get(e.id.replace(/Component$/, 'Blueprint')) ?? null;
       const name = mi?.name ?? `${e.items[0].name} ${e.part.name}`;
-      return { ...e, m: mi, name, plat: b[name.toLowerCase()] || null, image: mi?.thumb ?? e.part.image };
+      return { ...e, m: mi, name, plat: b[name.toLowerCase()] || null, image: mi?.thumb ?? e.part.image, fallback: e.part.image ?? null };
     });
   });
   return { db, market, bulk, parts, error: () => db.error?.message ?? market.error?.message };
@@ -61,7 +61,7 @@ export default function Trade() {
           <PriceAlerts />
         </Match>
         <Match when={data.error()}>
-          <div class="empty">{data.error()}</div>
+          <div class="empty">{errText(data.error())}</div>
         </Match>
         <Match when={!game.inventory}>
           <div class="empty">{t('Noch kein Inventar – synchronisiere zuerst mit dem Spiel.')}</div>
@@ -145,7 +145,7 @@ function DucatTab(props) {
                     <td>
                       <span class="trd-name">
                         <Show when={r.image}>
-                          <img src={r.image} alt="" loading="lazy" />
+                          <img src={r.image} alt="" loading="lazy" onError={(e) => r.fallback && e.currentTarget.src !== r.fallback && (e.currentTarget.src = r.fallback)} />
                         </Show>
                         {r.name}
                       </span>
@@ -228,7 +228,7 @@ function SellTab(props) {
     }
     for (const p of parts) {
       const qty = spare.get(p.id);
-      if (p.m && qty >= 1) out.push({ key: p.m.slug, kind: 'part', name: p.name, slug: p.m.slug, image: p.image, qty, avg: p.plat });
+      if (p.m && qty >= 1) out.push({ key: p.m.slug, kind: 'part', name: p.name, slug: p.m.slug, image: p.image, fallback: p.fallback, qty, avg: p.plat });
     }
     for (const m of market.items) {
       const isMod = m.tags.includes('mod');
@@ -378,7 +378,7 @@ function SellTab(props) {
                     <td>
                       <span class="trd-name">
                         <Show when={r.image}>
-                          <img src={r.image} alt="" loading="lazy" />
+                          <img src={r.image} alt="" loading="lazy" onError={(e) => r.fallback && e.currentTarget.src !== r.fallback && (e.currentTarget.src = r.fallback)} />
                         </Show>
                         {r.name}
                         <Show when={r.kind === 'set'}>

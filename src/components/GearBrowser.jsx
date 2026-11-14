@@ -11,7 +11,7 @@ import { load, save } from '../lib/ipc.js';
 import { Plat, Ducat } from './Icons.jsx';
 import TodoStar from './TodoStar.jsx';
 import HoverSearch from './HoverSearch.jsx';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 
 const TABS = [
   { id: 'all', label: 'Alle', icon: All, cats: null },
@@ -209,7 +209,7 @@ export default function GearBrowser(props) {
   });
 
   return (
-    <Show when={db()} fallback={db.error ? <p class="err">{db.error.message}</p> : <div class="empty">{t('Lade Item-Datenbank …')}</div>}>
+    <Show when={db()} fallback={db.error ? <p class="err">{errText(db.error)}</p> : <div class="empty">{t('Lade Item-Datenbank …')}</div>}>
       <div class="gb">
         <div class="gb-bar">
           <For each={TABS}>

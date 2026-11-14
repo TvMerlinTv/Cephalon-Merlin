@@ -7,4 +7,6 @@ export default defineConfig({
   clearScreen: false,
   server: { port: 1420, strictPort: true },
   build: { target: 'es2022', outDir: 'dist', emptyOutDir: true },
+  // npm test: reine Logik, kein Browser nötig
+  test: { environment: 'node', include: ['src/**/*.test.js'] },
 });

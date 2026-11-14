@@ -217,6 +217,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn relic_refinements_and_riven_types() {
+        assert_eq!(normalize("/Lotus/Types/Game/Projections/T1VoidProjectionA1Silver"), ("/Lotus/Types/Game/Projections/T1VoidProjectionA1", Some("exceptional")));
+        assert_eq!(normalize("/Lotus/Types/Game/Projections/T1VoidProjectionA1Platinum").1, Some("radiant"));
+        assert_eq!(normalize("/Lotus/Types/Game/Projections/T1VoidProjectionA1").1, Some("intact"));
+        assert_eq!(normalize("/Lotus/Types/Items/MiscItems/OrokinCell"), ("/Lotus/Types/Items/MiscItems/OrokinCell", None));
+        assert_eq!(riven_type("/Lotus/Upgrades/Mods/Randomized/LotusRifleRandomModRare"), "LotusRifle");
+        assert_eq!(riven_type("/Lotus/Upgrades/Mods/Randomized/RawPistolRandomMod"), "Pistol");
+    }
+
+    #[test]
+    fn riven_rolls_from_fingerprint() {
+        let fp = json!({
+            "compat": "/Lotus/Weapons/Rifle", "lvl": 8, "lvlReq": 12, "rerolls": 3, "pol": "AP_ATTACK",
+            "buffs": [{ "Tag": "WeaponCritChanceMod", "Value": 0 }, { "Tag": "WeaponDamageAmountMod", "Value": 0x3fff_ffff }],
+            "curses": [{ "Tag": "WeaponZoomFovMod", "Value": 0x1fff_ffff }],
+        });
+        let r = parse_riven(&json!({ "ItemId": { "$oid": "abc" }, "ItemType": "/X/LotusRifleRandomModRare", "UpgradeFingerprint": fp.to_string() }));
+        assert_eq!(r["type"], "LotusRifle");
+        assert_eq!(r["rerolls"], 3);
+        assert_eq!(r["buffs"][0]["roll"], 0.0);
+        assert_eq!(r["buffs"][1]["roll"], 1.0);
+        assert!((r["curses"][0]["roll"].as_f64().unwrap() - 0.5).abs() < 1e-6);
+        assert!(r["challenge"].is_null());
+        // Kaputter Fingerprint: leere Werte statt Absturz
+        let bad = parse_riven(&json!({ "ItemType": "/X/RawMeleeRandomMod", "UpgradeFingerprint": "{nicht json" }));
+        assert_eq!(bad["buffs"], json!([]));
+        assert_eq!(bad["type"], "Melee");
+    }
+
+    #[test]
     fn counts_relics_and_mods() {
         let inv = json!({
             "PlayerLevel": 32,

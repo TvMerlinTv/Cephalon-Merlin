@@ -188,3 +188,27 @@
 .bld-detail-actions {
   flex-wrap: wrap;
 }
+
+/* Offline-Hinweis in der Titelleiste (NetBadge.jsx) */
+.badge-offline {
+  background: color-mix(in srgb, var(--warn, #d9a441) 22%, transparent);
+  color: var(--warn, #e8b75a);
+  cursor: help;
+  -webkit-app-region: no-drag;
+}
+
+/* Tastatur: sichtbarer Fokus nur bei Tab-Bedienung (nicht bei Mausklicks) */
+:where(button, a, select, summary, [tabindex], input[type='checkbox'], input[type='range']):focus-visible {
+  outline: 2px solid var(--accent-2, var(--accent));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+:where(input:not([type='checkbox']):not([type='range']), textarea):focus-visible {
+  outline: 2px solid var(--accent-2, var(--accent));
+  outline-offset: 0;
+}
+
+/* Nicht ladbare Bilder ausblenden (Platz bleibt, kein Browser-Symbol) */
+img.img-broken {
+  visibility: hidden;
+}

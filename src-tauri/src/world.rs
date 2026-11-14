@@ -39,6 +39,7 @@ async fn get_json(url: &str) -> Result<Value, String> {
         }
         Err(e) => return Err(err_text(e)),
     };
+    crate::net::set_online(true); // Server erreichbar
     if !res.status().is_success() {
         return Err(format!("HTTP {} für {url}", res.status().as_u16()));
     }
@@ -317,12 +318,31 @@ pub fn parse(ws: &Value, names: &Value, now: i64) -> Value {
     })
 }
 
+/// Weltstatus laden. Offline: den zuletzt geladenen Rohstand (cache/worldstate.json) mit der
+/// aktuellen Zeit neu auswerten – Zyklen stimmen dann weiter, abgelaufene Einträge fallen weg.
+/// Das Ergebnis hat dann "dataAt" (Zeit des Rohstands) und "offline": true.
 pub async fn fetch(data: &Path) -> Result<Value, String> {
     let (ws, names) = tokio::join!(get_json(WORLDSTATE), names(data));
-    let ws = ws?;
-    let parsed = tauri::async_runtime::spawn_blocking(move || parse(&ws, &names, now_ms()))
+    let raw_file = data.join("cache").join("worldstate.json");
+    let (ws, data_at, offline) = match ws {
+        Ok(ws) => {
+            let _ = std::fs::create_dir_all(raw_file.parent().unwrap_or(data));
+            let _ = crate::paths::write_atomic(&raw_file, &json!({ "at": now_ms(), "ws": ws }).to_string());
+            (ws, now_ms(), false)
+        }
+        Err(e) => {
+            let cached = std::fs::read_to_string(&raw_file).ok().and_then(|t| serde_json::from_str::<Value>(&t).ok());
+            match cached {
+                Some(c) if c["ws"].is_object() => (c["ws"].clone(), c["at"].as_i64().unwrap_or(0), true),
+                _ => return Err(e),
+            }
+        }
+    };
+    let mut parsed = tauri::async_runtime::spawn_blocking(move || parse(&ws, &names, now_ms()))
         .await
         .map_err(|e| e.to_string())?;
+    parsed["dataAt"] = json!(data_at);
+    parsed["offline"] = json!(offline);
     if let Ok(mut l) = LATEST.lock() {
         *l = Some(parsed.clone());
     }
@@ -332,6 +352,63 @@ pub async fn fetch(data: &Path) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const MIN: i64 = 60_000;
+    const H: i64 = 60 * MIN;
+
+    #[test]
+    fn earth_switches_every_4_hours() {
+        let day = earth_cycle(0);
+        assert_eq!((day["state"].as_str(), day["expiry"].as_str()), (Some("day"), Some("1970-01-01T04:00:00.000Z")));
+        // Genau an der Grenze beginnt schon der nächste Abschnitt
+        assert_eq!(earth_cycle(4 * H)["state"], "night");
+        assert_eq!(earth_cycle(4 * H - 1)["state"], "day");
+        assert_eq!(earth_cycle(8 * H)["state"], "day");
+    }
+
+    #[test]
+    fn cetus_night_is_last_50_minutes_before_bounty_end() {
+        let end = 1_794_000_000_000;
+        let c = cetus_cycle(end, end - 60 * MIN);
+        assert_eq!(c["state"], "day");
+        assert_eq!(c["expiry"], json!(iso(end - 50 * MIN)));
+        let n = cetus_cycle(end, end - 10 * MIN);
+        assert_eq!(n["state"], "night");
+        assert_eq!(n["expiry"], json!(iso(end)));
+        // Altes Kopfgeld-Ende: Zyklus läuft im 150-Min.-Takt weiter
+        let later = cetus_cycle(end, end + 150 * MIN + 30 * MIN);
+        assert_eq!(later["state"], "day");
+        assert_eq!(later["activation"], json!(iso(end + 150 * MIN)));
+        // Kopfgeld-Ende weit in der Zukunft: auf den aktuellen Zyklus zurückrechnen
+        let early = cetus_cycle(end + 10 * 150 * MIN, end - 10 * MIN);
+        assert_eq!(early["state"], "night");
+        assert_eq!(early["expiry"], json!(iso(end)));
+        // Ohne Kopfgeld-Daten kein Absturz
+        assert!(cetus_cycle(0, end)["state"].is_string());
+    }
+
+    #[test]
+    fn vallis_warm_400s_cold_1200s() {
+        let start = 1_541_837_628_000;
+        assert_eq!(vallis_cycle(start)["state"], "warm");
+        assert_eq!(vallis_cycle(start + 399_999)["state"], "warm");
+        let cold = vallis_cycle(start + 400_000);
+        assert_eq!(cold["state"], "cold");
+        assert_eq!(cold["expiry"], json!(iso(start + 1_600_000)));
+        // Viele Zyklen später gleiches Muster
+        let t = start + 1000 * 1_600_000 + 100_000;
+        assert_eq!(vallis_cycle(t)["state"], "warm");
+        assert_eq!(vallis_cycle(t)["activation"], json!(iso(start + 1000 * 1_600_000)));
+    }
+
+    #[test]
+    fn mongo_dates() {
+        assert_eq!(ms(&json!({ "$date": { "$numberLong": "1794000000000" } })), 1_794_000_000_000);
+        assert_eq!(ms(&json!({ "$date": { "$numberLong": 5 } })), 5);
+        assert_eq!(ms(&json!(null)), 0);
+        assert_eq!(iso(1_794_000_000_123), "2026-11-06T21:20:00.123Z");
+        assert_eq!(iso(951_782_400_000), "2000-02-29T00:00:00.000Z"); // Schalttag
+    }
 
     #[test]
     fn iso_and_cycles() {

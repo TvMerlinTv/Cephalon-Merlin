@@ -4,11 +4,12 @@
 //! kein „kleines Update“ und kein PowerShell-Hilfsskript:
 //!  1. GET /repos/<REPO>/releases – das neueste Release mit dem Asset „Cephalon-Merlin-RS.exe“
 //!     (die Electron-Releases im selben Repository haben dieses Asset nicht und werden übersprungen)
-//!  2. Download neben die laufende .exe (*.update.tmp), Prüfung: „MZ“ am Anfang und – wenn GitHub
-//!     sie liefert – SHA-256 aus dem Asset-Feld „digest“
+//!  2. Download neben die laufende .exe (*.update.tmp), Prüfung: „MZ“ am Anfang und Pflicht-
+//!     SHA-256 aus dem Asset-Feld „digest“ (fehlt sie, wird nicht installiert)
 //!  3. Laufende .exe in *.old umbenennen (geht unter Windows auch im Betrieb), neue an ihren Platz,
 //!     neue mit `--after-update <pid>` starten – sie wartet, bis diese hier beendet ist.
 //!     *.old wird beim nächsten Start gelöscht.
+//!
 //! Aktiv nur in der echten .exe (Release-Build, Dateiname ohne „Preview“).
 use crate::net::{client, err_text, now_ms};
 use serde_json::{json, Value};
@@ -288,10 +289,10 @@ async fn download(app: &AppHandle, latest: &Value, tmp: &PathBuf, size: u64) -> 
     if !buf.starts_with(b"MZ") {
         return Err("Heruntergeladene Datei ist keine .exe".into());
     }
-    if let Some(want) = latest["asset"]["sha256"].as_str() {
-        if sha256_hex(&buf).as_deref() != Some(want) {
-            return Err("Update beschädigt (Prüfsumme falsch)".into());
-        }
+    // Ohne Prüfsumme von GitHub wird nichts installiert
+    let want = latest["asset"]["sha256"].as_str().ok_or("GitHub liefert keine Prüfsumme – bitte die neue Version von GitHub laden.")?;
+    if sha256_hex(&buf).as_deref() != Some(want) {
+        return Err("Update beschädigt (Prüfsumme falsch)".into());
     }
     std::fs::write(tmp, &buf).map_err(|e| format!("Update speichern: {e}"))
 }

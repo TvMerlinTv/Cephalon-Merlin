@@ -1,13 +1,10 @@
 // Sync-Knopf in der Titelleiste: Status + Zeit seit dem letzten Sync (zählt jede Sekunde hoch).
-import { createSignal, Match, Switch } from 'solid-js';
+import { Match, Switch } from 'solid-js';
 import { RefreshCw, CircleCheck, TriangleAlert, LoaderCircle } from 'lucide-solid';
-import { game, syncGame } from '../lib/game.js';
+import { game, syncGame, syncErrorText } from '../lib/game.js';
 import { t } from '../lib/i18n.js';
 import { settings } from '../lib/settings.js';
-
-const [now, setNow] = createSignal(Date.now());
-setInterval(() => setNow(Date.now()), 1000);
-export { now };
+import { now } from '../lib/world.js';
 
 // 0:42 · 12:05 · 1:02:33 · 3d 16:05:12
 function since(at) {
@@ -39,7 +36,7 @@ export default function SyncBadge() {
         </span>
       </Match>
       <Match when={game.error}>
-        <button class="badge badge-error" onClick={syncGame} title={t(game.error)}>
+        <button class="badge badge-error" onClick={syncGame} title={syncErrorText()}>
           <TriangleAlert size={13} /> {t('Sync fehlgeschlagen – erneut')}
         </button>
       </Match>

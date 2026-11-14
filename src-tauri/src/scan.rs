@@ -76,23 +76,34 @@ pub fn group_blocks(words: &[Word]) -> Vec<Block> {
         }
     }
     let mut groups: Vec<(usize, Vec<&Word>)> = Vec::new();
-    for i in 0..n {
+    for (i, word) in words.iter().enumerate().take(n) {
         let k = find(&mut parent, i);
         match groups.iter_mut().find(|(key, _)| *key == k) {
-            Some((_, g)) => g.push(&words[i]),
-            None => groups.push((k, vec![&words[i]])),
+            Some((_, g)) => g.push(word),
+            None => groups.push((k, vec![word])),
         }
     }
     groups
         .into_iter()
         .map(|(_, mut ws)| {
-            ws.sort_by(|a, b| {
-                if (a.y - b.y).abs() < a.h * 0.6 {
-                    a.x.partial_cmp(&b.x).unwrap()
-                } else {
-                    a.y.partial_cmp(&b.y).unwrap()
+            // Lesereihenfolge: erst nach Höhe, dann je Zeile (Höhe ± 0,6 Wortgrößen) von links nach rechts.
+            // Bewusst kein Vergleich mit Toleranz in sort_by – der ist nicht transitiv und kann
+            // seit Rust 1.81 zum Absturz führen.
+            ws.sort_by(|a, b| a.y.total_cmp(&b.y));
+            let mut lines: Vec<Vec<&Word>> = Vec::new();
+            for w in ws {
+                match lines.last_mut() {
+                    Some(l) if (w.y - l[0].y).abs() < l[0].h * 0.6 => l.push(w),
+                    _ => lines.push(vec![w]),
                 }
-            });
+            }
+            let ws: Vec<&Word> = lines
+                .into_iter()
+                .flat_map(|mut l| {
+                    l.sort_by(|a, b| a.x.total_cmp(&b.x));
+                    l
+                })
+                .collect();
             let x = ws.iter().map(|w| w.x).fold(f64::INFINITY, f64::min);
             let y = ws.iter().map(|w| w.y).fold(f64::INFINITY, f64::min);
             let r = ws.iter().map(|w| w.x + w.w).fold(f64::NEG_INFINITY, f64::max);
@@ -142,7 +153,7 @@ fn find_tooltip(words: &[Word], reward_blocks: &[&Block], reward_names: &[&str])
     };
     let mut right = title.x + title.w;
     let mut band: Vec<&Word> = words.iter().filter(|w| w.y >= title.y && w.y + w.h <= bottom + line_h && w.x >= title.x - line_h * 2.0).collect();
-    band.sort_by(|a, b| a.y.partial_cmp(&b.y).unwrap());
+    band.sort_by(|a, b| a.y.total_cmp(&b.y));
     let mut lines: Vec<Vec<&Word>> = Vec::new();
     for w in band {
         match lines.iter_mut().find(|l| (l[0].y - w.y).abs() < line_h * 0.6) {
@@ -151,7 +162,7 @@ fn find_tooltip(words: &[Word], reward_blocks: &[&Block], reward_names: &[&str])
         }
     }
     for mut line in lines {
-        line.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+        line.sort_by(|a, b| a.x.total_cmp(&b.x));
         if line[0].x > title.x + line_h * 3.0 {
             continue;
         }
@@ -406,7 +417,7 @@ pub fn analyze(words: &[Word], relics: &[Value], owned: Option<&HashSet<String>>
     // 1) Relikt-Auswahl: Zeile "<Name> Relic [<Stufe>] - Possible Rewards"
     if let Some(p) = possible {
         let mut line: Vec<&Word> = words.iter().filter(|w| (w.y - p.y).abs() < p.h * 0.6 && w.x < p.x).collect();
-        line.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+        line.sort_by(|a, b| a.x.total_cmp(&b.x));
         let texts: Vec<&str> = line.iter().map(|w| w.t.as_str()).collect();
         let relic_word = texts.iter().position(|t| t.to_lowercase().starts_with("relic"));
         let name_guess = match relic_word {
@@ -447,7 +458,7 @@ pub fn analyze(words: &[Word], relics: &[Value], owned: Option<&HashSet<String>>
                 .flat_map(|(bi, b)| own.iter().map(move |n| (bi, *n, similarity(&b.text, n))))
                 .filter(|p| p.2 >= 0.6)
                 .collect();
-            pairs.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
+            pairs.sort_by(|a, b| b.2.total_cmp(&a.2));
             let (mut used_b, mut used_n) = (HashSet::new(), HashSet::new());
             let mut spots = Vec::new();
             for (bi, name, _) in pairs {
@@ -489,7 +500,8 @@ pub fn analyze(words: &[Word], relics: &[Value], owned: Option<&HashSet<String>>
         return json!({ "mode": "none" });
     }
     // Nur die Reihe mit den meisten Treffern (die Belohnungen stehen auf einer Höhe)
-    let mut rows: Vec<(f64, Vec<(&str, f64, &Block)>)> = Vec::new();
+    type Hit<'a> = (&'a str, f64, &'a Block);
+    let mut rows: Vec<(f64, Vec<Hit>)> = Vec::new();
     for it in items.drain(..) {
         match rows.iter_mut().find(|(y, _)| (y - it.2.y).abs() < it.2.h * 1.5) {
             Some((_, r)) => r.push(it),
@@ -497,7 +509,7 @@ pub fn analyze(words: &[Word], relics: &[Value], owned: Option<&HashSet<String>>
         }
     }
     let mut row = rows.into_iter().max_by_key(|(_, r)| r.len()).map(|(_, r)| r).unwrap_or_default();
-    row.sort_by(|a, b| a.2.x.partial_cmp(&b.2.x).unwrap());
+    row.sort_by(|a, b| a.2.x.total_cmp(&b.2.x));
     let items: Vec<Value> = row
         .into_iter()
         .take(4)

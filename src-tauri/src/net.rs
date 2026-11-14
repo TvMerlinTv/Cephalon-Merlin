@@ -29,9 +29,31 @@ pub fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
 }
 
+// ---------- Online-Zustand ----------
+// Offline = die letzte Anfrage scheiterte an Verbindung/Zeitüberschreitung. Wieder online,
+// sobald irgendeine Anfrage durchkommt (Weltstatus jede Minute, Markt …).
+static OFFLINE_SINCE: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
+
+pub fn set_online(online: bool) {
+    if online {
+        OFFLINE_SINCE.store(0, Ordering::Relaxed);
+    } else {
+        let _ = OFFLINE_SINCE.compare_exchange(0, now_ms(), Ordering::Relaxed, Ordering::Relaxed);
+    }
+}
+
+/// { online, since } – since = seit wann offline (ms), sonst null
+pub fn online_status() -> Value {
+    let since = OFFLINE_SINCE.load(Ordering::Relaxed);
+    json!({ "online": since == 0, "since": (since != 0).then_some(since) })
+}
+
 /// Fehlertext ohne URL (die URL kann bei manchen Anfragen Geheimnisse enthalten).
 pub fn err_text(e: reqwest::Error) -> String {
     let e = e.without_url();
+    if e.is_timeout() || e.is_connect() {
+        set_online(false);
+    }
     if e.is_timeout() {
         "Zeitüberschreitung – Server antwortet nicht.".into()
     } else if e.is_connect() {
@@ -148,6 +170,7 @@ pub async fn market_get_ex(path: &str, language: &str, cancelled: &(dyn Fn() -> 
             .map_err(|e| MarketError { message: err_text(e), retry_at: None })?;
         let status = res.status().as_u16();
         if res.status().is_success() {
+            set_online(true);
             return res.json().await.map_err(|e| MarketError { message: err_text(e), retry_at: None });
         }
         let busy = status == 429 || (500..600).contains(&status);

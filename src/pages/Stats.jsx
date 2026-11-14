@@ -6,7 +6,7 @@ import { game, syncGame } from '../lib/game.js';
 import { call, load, save } from '../lib/ipc.js';
 import { settings } from '../lib/settings.js';
 import { compact } from '../lib/gamedb.js';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 import { Plat, Ducat } from '../components/Icons.jsx';
 import RewardLog from './RewardLog.jsx';
 
@@ -189,7 +189,7 @@ function AccountStats() {
   return (
     <Switch>
       <Match when={history.error}>
-        <p class="err">{String(history.error?.message ?? history.error)}</p>
+        <p class="err">{errText(history.error)}</p>
       </Match>
       <Match when={!history()}>
         <div class="empty">{t('Lade Verlauf …')}</div>

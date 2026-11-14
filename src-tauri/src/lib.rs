@@ -5,6 +5,7 @@ mod clipboard;
 mod updater;
 mod db;
 mod discord;
+mod eelog;
 mod game;
 mod logger;
 mod net;
@@ -248,6 +249,12 @@ fn riven_auctions_cancel() {
 }
 
 // ---------- Weltstatus ----------
+/// Online-Zustand { online, since } (Änderungen kommen als "net-status"-Ereignis).
+#[tauri::command]
+fn net_status() -> Value {
+    net::online_status()
+}
+
 /// Letzter Weltstatus (der Rust-Teil lädt ihn jede Minute und schickt ihn als "world"-Ereignis).
 #[tauri::command]
 async fn world_state(state: State<'_, AppState>) -> Result<Value, String> {
@@ -261,20 +268,32 @@ async fn world_state(state: State<'_, AppState>) -> Result<Value, String> {
 fn start_world_loop(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut last_fetch: Option<std::time::Instant> = None;
+        let mut last_net = net::online_status();
         loop {
             let st = app.state::<AppState>();
             if last_fetch.map_or(true, |t| t.elapsed() >= std::time::Duration::from_secs(60)) {
+                // Offline (Fehler oder nur der gespeicherte Stand): nach 20 s erneut versuchen
+                let retry = Some(std::time::Instant::now() - std::time::Duration::from_secs(40));
                 match world::fetch(&st.data).await {
                     Ok(w) => {
                         let _ = app.emit("world", &w);
-                        last_fetch = Some(std::time::Instant::now());
+                        last_fetch = if w["offline"] == true { retry } else { Some(std::time::Instant::now()) };
                     }
                     Err(e) => {
-                        logger::warn("world", e);
-                        // nach 20 s erneut versuchen
-                        last_fetch = Some(std::time::Instant::now() - std::time::Duration::from_secs(40));
+                        // Offline nur einmal protokollieren, nicht alle 20 s
+                        if last_net["online"] == true {
+                            logger::warn("world", e);
+                        }
+                        last_fetch = retry;
                     }
                 }
+            }
+            // Online-Zustand an die Oberfläche (nur bei Änderung)
+            let net_now = net::online_status();
+            if net_now != last_net {
+                logger::info("net", if net_now["online"] == true { "wieder online" } else { "offline" });
+                let _ = app.emit("net-status", &net_now);
+                last_net = net_now;
             }
             let s = st.settings.get();
             if let Some(w) = world::latest() {
@@ -545,6 +564,8 @@ pub fn run() {
             alerts::start(app.handle().clone());
             discord::start(app.handle().clone());
             autosync::start(app.handle().clone());
+            // Erst nachdem Overlay, Discord und Auto-Sync abonniert haben
+            eelog::start();
             updater::start(app.handle().clone());
             window_state::restore(&win, &st.data, st.settings.bool("secondMonitor"));
             // Die Oberfläche zeigt das Fenster, sobald sie gezeichnet ist (kein weißes Aufblitzen).
@@ -591,6 +612,7 @@ pub fn run() {
             riven_auctions,
             riven_auctions_cancel,
             world_state,
+            net_status,
             notify_test,
             notify_send,
             discord_status,

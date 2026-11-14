@@ -4,7 +4,8 @@ import { createSignal, Match, Show, Switch } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { ArrowDownCircle, CheckCircle2, ExternalLink, LoaderCircle, RefreshCw, X } from 'lucide-solid';
 import { call, isTauri, on, openExternal } from '../lib/ipc.js';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
+import { onEscape } from '../lib/keys.js';
 import Markdown from './Markdown.jsx';
 import '../updates.css';
 
@@ -19,6 +20,8 @@ const mb = (b) => `${((b ?? 0) / 1024 / 1024).toFixed(1)} MB`;
 const busy = (s) => s === 'downloading' || s === 'installing';
 
 function UpdateDialog(props) {
+  // Während Download/Installation nicht schließbar
+  onEscape(() => (busy(update()?.status) ? false : props.onClose()));
   const [error, setError] = createSignal(null);
   const s = () => update();
   const latest = () => s().latest;
@@ -71,7 +74,7 @@ function UpdateDialog(props) {
             </p>
           </Show>
           <Show when={(error() || s().error) && !busy(s().status)}>
-            <p class="err">{error() || s().error}</p>
+            <p class="err">{errText(error() || s().error)}</p>
           </Show>
           <Show when={!s().canInstall}>
             <p class="muted">{t('Aktualisieren geht nur in der fertigen .exe (nicht in der Preview) – lade die neue Version sonst von GitHub.')}</p>
@@ -137,7 +140,7 @@ export function UpdateCheck() {
             </button>
           </Match>
           <Match when={status() === 'error'}>
-            <span class="err">{s().error}</span>
+            <span class="err">{errText(s().error)}</span>
           </Match>
           <Match when={status() === 'none' && s().noRelease && (checked() || s().checkedAt)}>
             <span class="muted">{t('Noch keine Rust-Version auf GitHub veröffentlicht.')}</span>

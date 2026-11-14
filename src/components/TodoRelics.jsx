@@ -7,7 +7,7 @@ import { RelicIcon } from './WorldWidgets.jsx';
 import { Plat } from './Icons.jsx';
 import TodoStar from './TodoStar.jsx';
 import { load, save } from '../lib/ipc.js';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 
 const REFINEMENTS = ['radiant', 'flawless', 'exceptional', 'intact'];
 const REF_SHORT = { intact: 'I', exceptional: 'E', flawless: 'F', radiant: 'R' };
@@ -224,7 +224,7 @@ export default function TodoRelics(props) {
       </div>
       <Switch>
         <Match when={data.error}>
-          <p class="err">{data.error.message}</p>
+          <p class="err">{errText(data.error)}</p>
         </Match>
         <Match when={!data()}>
           <div class="empty">{t('Lade Relikte …')}</div>

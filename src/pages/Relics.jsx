@@ -9,7 +9,7 @@ import { RelicIcon } from '../components/WorldWidgets.jsx';
 import { STATUS } from '../components/ScanViews.jsx';
 import ItemDetails from '../components/ItemDetails.jsx';
 import { Plat, Ducat } from '../components/Icons.jsx';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 import { load, openExternal, save } from '../lib/ipc.js';
 
 const PAGE = 40;
@@ -110,7 +110,7 @@ export default function Relics() {
   return (
     <Switch>
       <Match when={ri().error}>
-        <div class="empty">{t('Relikt-Daten nicht ladbar: {e}', { e: ri().error })}</div>
+        <div class="empty">{t('Relikt-Daten nicht ladbar: {e}', { e: errText(ri().error) })}</div>
       </Match>
       <Match when={!ri().ready}>
         <div class="empty">{t('Lade Relikte und Preise …')}</div>

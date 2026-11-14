@@ -4,7 +4,7 @@ import { Dices, Lock, RefreshCw, ExternalLink, X } from 'lucide-solid';
 import HoverSearch from '../components/HoverSearch.jsx';
 import { game } from '../lib/game.js';
 import { settings } from '../lib/settings.js';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 import { call, load, save, openExternal } from '../lib/ipc.js';
 import { Plat } from '../components/Icons.jsx';
 import { RIVEN_TYPES, RAW_LABELS, loadRivenMeta, describeRiven, challengeText, nextRollKuva, spentKuva, parseMarketError } from '../lib/rivens.js';
@@ -153,7 +153,7 @@ function Prices(props) {
                 ? error().retryAt && error().retryAt > now()
                   ? t('warframe.market ist gerade ausgelastet – neuer Versuch in {n} s.', { n: Math.ceil((error().retryAt - now()) / 1000) })
                   : t('warframe.market ist gerade ausgelastet – bitte gleich nochmal versuchen.')
-                : `${t('Preise konnten nicht geladen werden.')} (${error().message})`}
+                : `${t('Preise konnten nicht geladen werden.')} (${errText(error().message)})`}
             </p>
             <button class="btn" onClick={() => setAttempt((n) => n + 1)}>
               <RefreshCw size={14} /> {t('Erneut versuchen')}

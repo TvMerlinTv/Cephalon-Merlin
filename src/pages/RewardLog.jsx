@@ -7,7 +7,7 @@ import { call, on } from '../lib/ipc.js';
 import { getItems } from '../lib/market.js';
 import { loadBulkPrices, loadMasteryDb, loadRelicDb } from '../lib/gamedb.js';
 import { settings } from '../lib/settings.js';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 import { Plat, Ducat } from '../components/Icons.jsx';
 import './rewardLog.css';
 
@@ -179,7 +179,7 @@ export default function RewardLog() {
   return (
     <Switch>
       <Match when={error() || runs.error}>
-        <p class="err">{error() ?? String(runs.error?.message ?? runs.error)}</p>
+        <p class="err">{errText(error() ?? runs.error)}</p>
       </Match>
       <Match when={!valued()}>
         <div class="empty">{t('Lade Belohnungs-Log …')}</div>

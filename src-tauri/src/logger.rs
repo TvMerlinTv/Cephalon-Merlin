@@ -51,8 +51,23 @@ pub fn now_iso() -> String {
     )
 }
 
+/// Sicherheitsnetz: Sitzungs-Token und Webhook-URLs nie ins Protokoll – auch nicht aus Fehlertexten.
+fn redact(msg: &str) -> String {
+    let mut out = msg.to_string();
+    for (needle, keep) in [("accountId=", 10), ("nonce=", 6), ("/api/webhooks/", 14)] {
+        let mut from = 0;
+        while let Some(i) = out[from..].find(needle).map(|i| i + from) {
+            let start = i + keep;
+            let end = out[start..].find(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | ')' | '&')).map_or(out.len(), |e| start + e);
+            out.replace_range(start..end, "***");
+            from = start + 3;
+        }
+    }
+    out
+}
+
 pub fn write(level: &str, source: &str, msg: &str) {
-    let text: String = msg.trim_end().chars().take(4000).collect();
+    let text: String = redact(msg.trim_end()).chars().take(4000).collect();
     let Ok(mut s) = STATE.lock() else { return };
     let key = format!("{level}|{source}|{text}");
     if key == s.last {
@@ -94,4 +109,16 @@ pub fn install_panic_hook() {
         error("panic", info.to_string());
         prev(info);
     }));
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn redacts_secrets() {
+        let s = super::redact("GET https://x/api/inventory.php?accountId=0123456789abcdef01234567&nonce=987654 failed");
+        assert_eq!(s, "GET https://x/api/inventory.php?accountId=***&nonce=*** failed");
+        let w = super::redact("post https://discord.com/api/webhooks/123/abcDEF: 404");
+        assert_eq!(w, "post https://discord.com/api/webhooks/*** 404");
+        assert_eq!(super::redact("nichts Geheimes"), "nichts Geheimes");
+    }
 }

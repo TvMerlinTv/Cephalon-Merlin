@@ -4,12 +4,12 @@ import { createMemo, createResource, createSignal, For, Match, onCleanup, onMoun
 import { Dynamic } from 'solid-js/web';
 import { Infinity as All, Gem, Puzzle, Flame, Sparkles, Box, Search, ArrowDownUp, RefreshCw, FileUp, X, ExternalLink } from 'lucide-solid';
 import { getItems, cachedPrice, loadPrice } from '../lib/market.js';
-import { game, syncGame, importInventory } from '../lib/game.js';
+import { game, syncGame, importInventory, syncErrorText } from '../lib/game.js';
 import ItemCard from '../components/ItemCard.jsx';
 import ItemDetails from '../components/ItemDetails.jsx';
 import { loadMasteryDb } from '../lib/gamedb.js';
 import { Plat, Ducat } from '../components/Icons.jsx';
-import { t, num } from '../lib/i18n.js';
+import { t, num , errText } from '../lib/i18n.js';
 import { isTauri, load, openExternal, save } from '../lib/ipc.js';
 
 const PAGE = 60;
@@ -95,7 +95,7 @@ export default function Inventory() {
         <div class="empty">{t('Nur in der Desktop-App verfügbar')}</div>
       </Match>
       <Match when={items.error}>
-        <div class="empty">{t('warframe.market nicht erreichbar: {e}', { e: items.error?.message ?? '' })}</div>
+        <div class="empty">{t('warframe.market nicht erreichbar: {e}', { e: errText(items.error) })}</div>
       </Match>
       <Match when={items.loading}>
         <div class="empty">{t('Lade Item-Liste von warframe.market …')}</div>
@@ -146,7 +146,7 @@ export default function Inventory() {
                   {t('Cephalon Merlin liest dann dein Inventar – genau wie AlecaFrame.')}
                 </p>
                 <Show when={game.error}>
-                  <p class="err">{t(game.error)}</p>
+                  <p class="err">{syncErrorText()}</p>
                 </Show>
                 <div class="empty-actions">
                   <button class="btn btn-primary" onClick={syncGame} disabled={game.syncing}>

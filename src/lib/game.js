@@ -2,6 +2,7 @@
 // Der Sync selbst läuft im Rust-Teil; jedes Fenster bekommt das Ergebnis per Ereignis.
 import { createStore, reconcile } from 'solid-js/store';
 import { call, isTauri, on } from './ipc.js';
+import { errText } from './i18n.js';
 
 const [game, setGame] = createStore({ inventory: null, syncing: false, error: null });
 export { game };
@@ -40,4 +41,12 @@ export const clearSyncError = () => setGame('error', null);
 export function builtCount(inv, id) {
   if (!inv) return 0;
   return (inv.counts[id] ?? 0) + (inv.owned[id] ?? 0);
+}
+
+/** Fehlertext des letzten Syncs in der eingestellten Sprache (Fehler aus dem Rust-Teil sind deutsch). */
+export function syncErrorText() {
+  const e = game.error;
+  if (!e) return '';
+  const auto = e.startsWith('Auto-Sync: ');
+  return auto ? `Auto-Sync: ${errText(e.slice(11))}` : errText(e);
 }

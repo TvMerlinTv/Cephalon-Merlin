@@ -3,6 +3,7 @@
 //!  - EE.log meldet den Belohnungs-Bildschirm -> mehrmals scannen, bis 4 Teile erkannt sind
 //!  - EE.log meldet die Relikt-Auswahl -> alle 0,5 s scannen (nur wenn das Spiel vorne ist)
 //!  - Scan-Taste (Standard Pos1)
+//!
 //! Das Overlay-Fenster ist durchsichtig, klick-durchlässig, nimmt nie den Fokus und ist von
 //! Bildschirmaufnahmen ausgeschlossen. Es klickt nie etwas im Spiel.
 use crate::ocr::{self, Image, Word};
@@ -433,7 +434,7 @@ fn merge_tiles(prev: &[Value], new: &[Value], t_now: i64) -> Vec<Value> {
         }
         let mine = old_votes.get(&tid).and_then(Value::as_f64).unwrap_or(0.0);
         votes.insert(tid.clone(), json!((mine + 1.0).min(4.0)));
-        let winner = votes.iter().max_by(|a, b| a.1.as_f64().partial_cmp(&b.1.as_f64()).unwrap()).map(|(k, _)| k.clone()).unwrap_or_default();
+        let winner = votes.iter().max_by(|a, b| a.1.as_f64().unwrap_or(0.0).total_cmp(&b.1.as_f64().unwrap_or(0.0))).map(|(k, _)| k.clone()).unwrap_or_default();
         let mut keep = if winner == tid { t.clone() } else { old.clone() };
         keep["seen"] = json!(t_now);
         keep["votes"] = Value::Object(votes);
@@ -629,67 +630,42 @@ enum LogEvent {
     Focus(bool),
 }
 
+/// Übersetzt EE.log-Zeilen (gemeinsamer Leser in eelog.rs) in Overlay-Ereignisse.
+fn log_event(line: &str) -> Option<LogEvent> {
+    if line.contains("Pause countdown done") || line.contains("Got rewards") {
+        Some(LogEvent::Rewards)
+    } else if line.contains("Relic timer closed") || line.contains("MatchingService::EndSession") {
+        Some(LogEvent::Closed)
+    } else if line.contains("Created /Lotus/Interface/ThemedProjectionManager.swf") {
+        Some(LogEvent::SelectionOpen)
+    } else if line.contains("WM_ACTIVATEAPP 0") {
+        Some(LogEvent::Focus(false))
+    } else if line.contains("WM_ACTIVATEAPP 1") {
+        Some(LogEvent::Focus(true))
+    } else if let Some(i) = line.find("Subscribing for /Lotus/Interface/") {
+        let rest = &line[i + 33..];
+        let name = rest.split(".swf").next().unwrap_or("").to_string();
+        (rest.contains(".swf") && !name.starts_with("ThemedProjectionManager")).then_some(LogEvent::Screen(name))
+    } else {
+        None
+    }
+}
+
 fn watch_log(tx: tokio::sync::mpsc::UnboundedSender<LogEvent>) {
-    let Some(local) = std::env::var_os("LOCALAPPDATA") else { return };
-    let file = std::path::PathBuf::from(local).join("Warframe").join("EE.log");
-    std::thread::Builder::new()
-        .name("ee-log".into())
-        .spawn(move || {
-            use std::io::{Read, Seek, SeekFrom};
-            let mut pos: Option<u64> = None;
-            let mut rest = String::new();
-            loop {
-                std::thread::sleep(Duration::from_millis(500));
-                let Ok(meta) = std::fs::metadata(&file) else { continue };
-                let size = meta.len();
-                // Start oder neues Log (Spielneustart): ab dem Ende lesen
-                if pos.map_or(true, |p| size < p) {
-                    pos = Some(size);
-                    rest.clear();
-                }
-                let p = pos.unwrap();
-                if size == p {
-                    continue;
-                }
-                let Ok(mut f) = std::fs::File::open(&file) else { continue };
-                if f.seek(SeekFrom::Start(p)).is_err() {
-                    continue;
-                }
-                let mut buf = Vec::with_capacity((size - p) as usize);
-                let _ = f.take(size - p).read_to_end(&mut buf);
-                pos = Some(p + buf.len() as u64);
-                // Latin-1: jedes Byte ein Zeichen
-                rest.extend(buf.iter().map(|&b| b as char));
-                let mut lines: Vec<&str> = rest.split('\n').collect();
-                let tail = lines.pop().unwrap_or("").to_string();
-                for line in lines {
-                    let ev = if line.contains("Pause countdown done") || line.contains("Got rewards") {
-                        Some(LogEvent::Rewards)
-                    } else if line.contains("Relic timer closed") || line.contains("MatchingService::EndSession") {
-                        Some(LogEvent::Closed)
-                    } else if line.contains("Created /Lotus/Interface/ThemedProjectionManager.swf") {
-                        Some(LogEvent::SelectionOpen)
-                    } else if line.contains("WM_ACTIVATEAPP 0") {
-                        Some(LogEvent::Focus(false))
-                    } else if line.contains("WM_ACTIVATEAPP 1") {
-                        Some(LogEvent::Focus(true))
-                    } else if let Some(i) = line.find("Subscribing for /Lotus/Interface/") {
-                        let rest = &line[i + 33..];
-                        let name = rest.split(".swf").next().unwrap_or("").to_string();
-                        (rest.contains(".swf") && !name.starts_with("ThemedProjectionManager")).then_some(LogEvent::Screen(name))
-                    } else {
-                        None
-                    };
-                    if let Some(ev) = ev {
-                        if tx.send(ev).is_err() {
-                            return;
-                        }
+    // Sofort abonnieren (vor eelog::start), ausgewertet wird im Hintergrund.
+    // Der bisherige Inhalt (Reset) ist für das Overlay uninteressant – nur neue Zeilen zählen.
+    let mut rx = crate::eelog::subscribe();
+    tauri::async_runtime::spawn(async move {
+        while let Some(ev) = crate::eelog::recv(&mut rx).await {
+            if let crate::eelog::Event::Lines(lines) = ev.as_ref() {
+                for ev in lines.iter().filter_map(|l| log_event(l)) {
+                    if tx.send(ev).is_err() {
+                        return;
                     }
                 }
-                rest = tail;
             }
-        })
-        .ok();
+        }
+    });
 }
 
 /// Belohnungs-Bildschirm braucht einen Moment, bis alle Namen da sind – mehrmals versuchen.

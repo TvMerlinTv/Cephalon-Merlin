@@ -2,6 +2,7 @@ import { createSignal, Match, Show, Switch } from 'solid-js';
 import { PanelRightOpen, PanelRightClose } from 'lucide-solid';
 import TitleBar from './components/TitleBar.jsx';
 import { UpdateBadge } from './components/UpdateNotice.jsx';
+import NetBadge from './components/NetBadge.jsx';
 import Sidebar, { NAV } from './components/Sidebar.jsx';
 import Settings from './components/Settings.jsx';
 import ConfirmClose from './components/ConfirmClose.jsx';
@@ -62,7 +63,7 @@ export default function App() {
 
   return (
     <div class="app">
-      <TitleBar left={<><SyncBadge /><UpdateBadge /></>} right={panelButton} />
+      <TitleBar left={<><SyncBadge /><NetBadge /><UpdateBadge /></>} right={panelButton} />
       <div class="body" classList={{ 'panel-collapsed': !showPanel() }}>
         <Sidebar page={settingsOpen() ? 'settings' : page()} onNavigate={go} />
         <main class="content">

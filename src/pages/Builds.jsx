@@ -8,7 +8,7 @@ import { openExternal, load, save } from '../lib/ipc.js';
 import { loadMasteryDb, compact } from '../lib/gamedb.js';
 import { game } from '../lib/game.js';
 import { settings } from '../lib/settings.js';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
 import { Plat } from '../components/Icons.jsx';
 import Markdown from '../components/Markdown.jsx';
 import BuildMods, { loadData } from '../components/BuildMods.jsx';
@@ -57,7 +57,7 @@ function ErrorBox(props) {
       {kind === 'offline' ? <WifiOff size={30} /> : <ShieldAlert size={30} />}
       <p>{t(ERROR_TEXT[kind])}</p>
       <Show when={kind === 'other'}>
-        <p class="small">{props.error?.message}</p>
+        <p class="small">{errText(props.error)}</p>
       </Show>
       <div class="empty-actions">
         <button class="btn" onClick={props.onRetry}>
@@ -524,7 +524,7 @@ export default function Builds() {
           </div>
         </Show>
         <Show when={db.error}>
-          <p class="err">{db.error.message}</p>
+          <p class="err">{errText(db.error)}</p>
         </Show>
         <Show when={!item() || showGear()}>
           <Show

@@ -7,7 +7,8 @@ import { call, load, save, openExternal } from '../lib/ipc.js';
 import GearBrowser from '../components/GearBrowser.jsx';
 import ItemDetails from '../components/ItemDetails.jsx';
 import { Plat } from '../components/Icons.jsx';
-import { t } from '../lib/i18n.js';
+import { t , errText } from '../lib/i18n.js';
+import { onEscape } from '../lib/keys.js';
 
 const STATUS_DE = { ingame: 'Im Spiel', online: 'Online', offline: 'Offline' };
 
@@ -25,6 +26,7 @@ function takeMarketItem() {
 }
 
 function ItemPicker(props) {
+  onEscape(() => props.onClose());
   const [q, setQ] = createSignal('');
   const hits = createMemo(() => {
     const s = q().trim().toLowerCase();
@@ -228,7 +230,7 @@ export default function Market() {
       </div>
 
       <Show when={error()}>
-        <p class="err">{error()}</p>
+        <p class="err">{errText(error())}</p>
       </Show>
       <Show when={!item()}>
         <GearBrowser onPick={pickGear} onPickPart={pickPart} />
