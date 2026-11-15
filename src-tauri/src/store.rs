@@ -3,7 +3,7 @@
 use serde_json::Value;
 use std::path::Path;
 
-const KEYS: [&str; 5] = ["todo", "builds", "alerts", "worldchecks", "foundry"];
+const KEYS: [&str; 6] = ["todo", "builds", "alerts", "worldchecks", "foundry", "checklist"];
 const MAX_LEN: usize = 200_000;
 
 fn check(key: &str) -> Result<(), String> {

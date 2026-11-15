@@ -9,6 +9,7 @@ import { openBuilds } from '../lib/builds.js';
 import { Plat, Ducat } from './Icons.jsx';
 import TodoStar from './TodoStar.jsx';
 import PriceAlertButton from './PriceAlertButton.jsx';
+import PriceHistory from './PriceHistory.jsx';
 import { t } from '../lib/i18n.js';
 import { materialClick } from './MaterialInfo.jsx';
 
@@ -86,6 +87,7 @@ function PriceTags(props) {
           <PriceAlertButton item={item()} price={price()} />
         </div>
         <SellBox item={item()} price={price()} />
+        <PriceHistory slug={item().slug} />
       </Show>
     </Show>
   );

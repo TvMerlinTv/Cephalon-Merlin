@@ -7,6 +7,7 @@ import { loadMasteryDb, loadBulkPrices } from '../lib/gamedb.js';
 import { game } from '../lib/game.js';
 import { world, countdown, now } from '../lib/world.js';
 import { spareParts, spareSets, wtsMessages, copyToClipboard, CHAT_LIMIT } from '../lib/trade.js';
+import { tradeTip } from '../lib/today.js';
 import { load, save } from '../lib/ipc.js';
 import { Plat, Ducat } from '../components/Icons.jsx';
 import { t , errText } from '../lib/i18n.js';
@@ -136,6 +137,7 @@ function DucatTab(props) {
                   {t('Ducats/Platin')}
                 </th>
                 <th class="num">{t('Summe')}</th>
+                <th title={t('Ab 10 Ducats pro Platin bringt Baro mehr, darunter der Verkauf.')}>{t('Empfehlung')}</th>
               </tr>
             </thead>
             <tbody>
@@ -166,6 +168,11 @@ function DucatTab(props) {
                     <td class="num">{r.ratio != null ? r.ratio.toFixed(1) : '–'}</td>
                     <td class="num">
                       {fmt(r.ducats * r.spare)} <Ducat size={12} />
+                    </td>
+                    <td>
+                      <Show when={tradeTip(r.ducats, r.plat)} fallback={<span class="muted">–</span>}>
+                        {(tip) => <span class={`trd-tip trd-tip-${tip()}`}>{tip() === 'baro' ? t('Baro') : t('Verkaufen')}</span>}
+                      </Show>
                     </td>
                   </tr>
                 )}

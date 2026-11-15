@@ -1,6 +1,7 @@
 //! Cephalon Merlin (Rust + Tauri 2) – Einstieg und Befehle für die Oberfläche.
 mod alerts;
 mod autosync;
+mod backup;
 mod clipboard;
 mod updater;
 mod db;
@@ -94,6 +95,12 @@ async fn scan_file(app: AppHandle) -> Result<Option<Value>, String> {
 #[tauri::command]
 fn overlay_rects(rects: Vec<(f64, f64, f64, f64)>) {
     overlay::set_rects(rects);
+}
+
+/// Overlay kurz mit Beispieldaten zeigen (Testen ohne Spiel).
+#[tauri::command]
+async fn overlay_test(app: AppHandle, kind: String) -> Result<(), String> {
+    overlay::test(&app, &kind).await
 }
 
 #[tauri::command]
@@ -205,6 +212,11 @@ async fn riven_auctions(weapon: String, positive: Vec<String>) -> Result<Value, 
 #[tauri::command]
 async fn market_top_orders(slug: String, rank: Option<u32>) -> Result<Value, String> {
     net::top_orders(&slug, rank).await
+}
+
+#[tauri::command]
+async fn market_history(slug: String) -> Result<Value, String> {
+    net::history(&slug).await
 }
 
 // ---------- Preis-Alarme ----------
@@ -414,6 +426,78 @@ fn explorer(arg: &std::ffi::OsStr) {
     let _ = std::process::Command::new("explorer.exe").arg(arg).spawn();
 }
 
+// ---------- Sicherung (Einstellungen → Allgemein → Daten) ----------
+/// Eigene Daten in eine Datei schreiben; der Speicherort kommt aus dem Windows-Dialog.
+#[tauri::command]
+async fn backup_export(app: AppHandle, state: State<'_, AppState>, local: Value) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let day = logger::now_iso().chars().take(10).collect::<String>();
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("Sicherung speichern")
+        .set_file_name(format!("cephalon-merlin-sicherung-{day}.json"))
+        .add_filter("Sicherung", &["json"])
+        .blocking_save_file();
+    let Some(path) = picked.and_then(|p| p.into_path().ok()) else { return Ok(None) };
+    let b = backup::build(&state.data, state.settings.get(), local, &app.package_info().version.to_string());
+    let text = serde_json::to_string_pretty(&b).map_err(|e| e.to_string())?;
+    std::fs::write(&path, text).map_err(|e| format!("Sicherung schreiben: {e}"))?;
+    logger::info("backup", "Sicherung gespeichert");
+    Ok(Some(path.display().to_string()))
+}
+
+/// Sicherung auswählen und einspielen. Bisherige Dateien liegen danach im Ordner „backup".
+#[tauri::command]
+async fn backup_import(app: AppHandle, state: State<'_, AppState>) -> Result<Option<Value>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app
+        .dialog()
+        .file()
+        .set_title("Sicherung auswählen")
+        .add_filter("Sicherung", &["json"])
+        .blocking_pick_file();
+    let Some(path) = picked.and_then(|p| p.into_path().ok()) else { return Ok(None) };
+    if std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0) > backup::MAX_BYTES {
+        return Err("Die Datei ist zu groß für eine Sicherung".into());
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("Sicherung lesen: {e}"))?;
+    let parsed = backup::parse(&text)?;
+    let r = backup::restore(&state.data, &state.settings, &parsed)?;
+    logger::info("backup", format!("Sicherung eingespielt: {}", r["restored"]));
+    let _ = app.emit("settings-changed", &r["settings"]);
+    overlay::settings_changed(&app, &r["settings"]);
+    Ok(Some(r))
+}
+
+// ---------- Diagnose (Hilfe-Seite) ----------
+/// Prüft, was die App zum Arbeiten braucht. Liest nichts aus dem Spiel – nur „läuft es?" und Dateien.
+#[tauri::command]
+async fn diagnostics(app: AppHandle, state: State<'_, AppState>) -> Result<Value, String> {
+    let game = tauri::async_runtime::spawn_blocking(game::reader::game_running).await.unwrap_or(false);
+    let log = eelog::path().and_then(|p| std::fs::metadata(&p).ok()).map(|m| {
+        let modified = m.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_millis() as i64);
+        json!({ "size": m.len(), "modified": modified })
+    });
+    let probe = state.data.join("diagnose.tmp");
+    let writable = std::fs::write(&probe, "ok").is_ok();
+    let _ = std::fs::remove_file(&probe);
+    let started = std::time::Instant::now();
+    let market = net::market_get("/v2/orders/item/mirage_prime_systems_blueprint/top").await;
+    let market_ms = started.elapsed().as_millis() as u64;
+    Ok(json!({
+        "version": app.package_info().version.to_string(),
+        "webview": tauri::webview_version().unwrap_or_default(),
+        "game": game,
+        "log": log,
+        "writable": writable,
+        "net": net::online_status(),
+        "market": match market { Ok(_) => json!({ "ok": true, "ms": market_ms }), Err(e) => json!({ "ok": false, "error": e.message }) },
+        "overlay": app.get_webview_window("overlay").is_some(),
+        "relicDb": state.data.join("cache").join("relic-db.json").is_file(),
+    }))
+}
+
 #[tauri::command]
 fn open_data_dir(state: State<AppState>) {
     explorer(state.data.as_os_str());
@@ -603,6 +687,7 @@ pub fn run() {
             market_prices_cached,
             riven_meta,
             market_top_orders,
+            market_history,
             overframe_get,
             alerts_list,
             alerts_add,
@@ -628,6 +713,7 @@ pub fn run() {
             scan_last,
             scan_file,
             overlay_rects,
+            overlay_test,
             overlay_hide,
             reward_log_list,
             reward_log_choose,
@@ -635,6 +721,9 @@ pub fn run() {
             store_get,
             store_set,
             app_info,
+            backup_export,
+            backup_import,
+            diagnostics,
             migrate_again,
             open_data_dir,
             open_log,

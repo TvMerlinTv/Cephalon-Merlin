@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<!-- Cephalon Merlin: Zauberhut mit Cephalon-Kern im Runenkreis (eigene Zeichnung) -->
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#241752"/><stop offset="1" stop-color="#0d0b1a"/></linearGradient>
+<radialGradient id="aura" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#7c4dff" stop-opacity="0.55"/><stop offset="1" stop-color="#7c4dff" stop-opacity="0"/></radialGradient>
+<linearGradient id="hat" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4efff"/><stop offset="1" stop-color="#b3a2ec"/></linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e3a1"/><stop offset="1" stop-color="#c9a24a"/></linearGradient>
+</defs>
+<rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+<circle cx="512" cy="512" r="330" fill="url(#aura)"/>
+<g fill="none" stroke="url(#gold)" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="512" cy="512" r="400" stroke-width="14"/>
+<circle cx="512" cy="512" r="318" stroke-width="8" opacity="0.8"/>
+<g stroke-width="9" opacity="0.9"><path transform="rotate(15 512 512) translate(512 153)" d="M0 -30V30M0 -30L22 -8L0 12"/><path transform="rotate(45 512 512) translate(512 153)" d="M0 -30V30M-18 -10L0 -30L18 -10"/><path transform="rotate(75 512 512) translate(512 153)" d="M-14 -30V30M-14 -30L14 0L-14 30"/><path transform="rotate(105 512 512) translate(512 153)" d="M-16 -30L16 30M16 -30L-16 30"/><path transform="rotate(135 512 512) translate(512 153)" d="M0 -30V30M0 -30L22 -8L0 12"/><path transform="rotate(165 512 512) translate(512 153)" d="M0 -30V30M-18 -10L0 -30L18 -10"/><path transform="rotate(195 512 512) translate(512 153)" d="M-14 -30V30M-14 -30L14 0L-14 30"/><path transform="rotate(225 512 512) translate(512 153)" d="M-16 -30L16 30M16 -30L-16 30"/><path transform="rotate(255 512 512) translate(512 153)" d="M0 -30V30M0 -30L22 -8L0 12"/><path transform="rotate(285 512 512) translate(512 153)" d="M0 -30V30M-18 -10L0 -30L18 -10"/><path transform="rotate(315 512 512) translate(512 153)" d="M-14 -30V30M-14 -30L14 0L-14 30"/><path transform="rotate(345 512 512) translate(512 153)" d="M-16 -30L16 30M16 -30L-16 30"/></g>
+</g>
+<g fill="#f6e3a1" stroke="#0d0b1a" stroke-width="6"><path transform="rotate(0 512 512)" d="M512 86 536 112 512 138 488 112Z"/><path transform="rotate(90 512 512)" d="M512 86 536 112 512 138 488 112Z"/><path transform="rotate(180 512 512)" d="M512 86 536 112 512 138 488 112Z"/><path transform="rotate(270 512 512)" d="M512 86 536 112 512 138 488 112Z"/></g>
+<g transform="translate(248 269) scale(22)">
+<ellipse cx="12" cy="17.2" rx="9.6" ry="2.5" fill="url(#hat)" opacity="0.8"/>
+<path d="M6.6 16.6 9.4 10.4 11.6 6 13.6 3.2 16.4 1.6 15.2 3.6 15 6.6 15.6 10.6 17.4 16.6Z" fill="url(#hat)"/>
+<path d="M12 8.7 14.3 12 12 15.3 9.7 12Z" fill="#7c4dff"/>
+<path d="M12 10.4 13.1 12 12 13.6 10.9 12Z" fill="#fff"/>
+<path d="M5.2 4.5 5.73 5.87 7.1 6.4 5.73 6.93 5.2 8.3 4.67 6.93 3.3 6.4 4.67 5.87Z" fill="#f6e3a1"/>
+<path d="M19.4 8 19.74 8.86 20.6 9.2 19.74 9.54 19.4 10.4 19.06 9.54 18.2 9.2 19.06 8.86Z" fill="#f6e3a1"/>
+</g>
+</svg>

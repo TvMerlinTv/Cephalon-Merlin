@@ -1,17 +1,26 @@
 // Kleine eigene Icons (Platin, Ducats, Logo) – der Rest kommt aus lucide-solid.
 import { t } from '../lib/i18n.js';
 
-// Cephalon Merlin: Zauberhut mit leuchtendem Cephalon-Kern
+// Cephalon Merlin: Zauberhut mit leuchtendem Cephalon-Kern im Runenkreis (eigene Zeichnung,
+// dasselbe Zeichen wie das App-Icon in src-tauri/icons/source.svg). Hut in Textfarbe, Kreis in Gold.
 export function Logo(props) {
   const size = () => props.size ?? 22;
   return (
-    <svg width={size()} height={size()} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <ellipse cx="12" cy="17.2" rx="9.6" ry="2.5" fill="currentColor" opacity="0.75" />
-      <path d="M6.6 16.6 9.4 10.4 11.6 6 13.6 3.2 16.4 1.6 15.2 3.6 15 6.6 15.6 10.6 17.4 16.6Z" fill="currentColor" />
-      <path d="M12 8.7 14.3 12 12 15.3 9.7 12Z" fill="var(--accent-2)" />
-      <path d="M12 10.4 13.1 12 12 13.6 10.9 12Z" fill="#fff" />
-      <path d="M5.2 4.5 5.73 5.87 7.1 6.4 5.73 6.93 5.2 8.3 4.67 6.93 3.3 6.4 4.67 5.87Z" fill="var(--accent-2)" />
-      <path d="M19.4 8 19.74 8.86 20.6 9.2 19.74 9.54 19.4 10.4 19.06 9.54 18.2 9.2 19.06 8.86Z" fill="var(--accent-2)" />
+    <svg width={size()} height={size()} viewBox="0 0 64 64" fill="none" class="logo-sigil" aria-hidden="true">
+      <g stroke="var(--gold, #c9a24a)">
+        <circle cx="32" cy="32" r="30" stroke-width="1.8" />
+        <circle cx="32" cy="32" r="24.5" stroke-width="0.9" opacity="0.7" />
+        <circle cx="32" cy="32" r="27.3" stroke-width="2.6" stroke-dasharray="0.9 6.247" opacity="0.85" />
+      </g>
+      <path d="M32 -0.5 35 2 32 4.5 29 2ZM32 59.5 35 62 32 64.5 29 62ZM-0.5 32 2 29 4.5 32 2 35ZM59.5 32 62 29 64.5 32 62 35Z" fill="var(--gold, #c9a24a)" />
+      <g transform="translate(11 12.6) scale(1.75)">
+        <ellipse cx="12" cy="17.2" rx="9.6" ry="2.5" fill="currentColor" opacity="0.75" />
+        <path d="M6.6 16.6 9.4 10.4 11.6 6 13.6 3.2 16.4 1.6 15.2 3.6 15 6.6 15.6 10.6 17.4 16.6Z" fill="currentColor" />
+        <path d="M12 8.7 14.3 12 12 15.3 9.7 12Z" fill="var(--accent-2)" />
+        <path d="M12 10.4 13.1 12 12 13.6 10.9 12Z" fill="#fff" />
+        <path d="M5.2 4.5 5.73 5.87 7.1 6.4 5.73 6.93 5.2 8.3 4.67 6.93 3.3 6.4 4.67 5.87Z" fill="var(--gold, #c9a24a)" />
+        <path d="M19.4 8 19.74 8.86 20.6 9.2 19.74 9.54 19.4 10.4 19.06 9.54 18.2 9.2 19.06 8.86Z" fill="var(--gold, #c9a24a)" />
+      </g>
     </svg>
   );
 }

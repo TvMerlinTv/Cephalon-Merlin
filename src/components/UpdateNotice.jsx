@@ -7,6 +7,7 @@ import { call, isTauri, on, openExternal } from '../lib/ipc.js';
 import { t , errText } from '../lib/i18n.js';
 import { onEscape } from '../lib/keys.js';
 import Markdown from './Markdown.jsx';
+import { Logo } from './Icons.jsx';
 import '../updates.css';
 
 const [update, setUpdate] = createSignal(null);
@@ -42,7 +43,9 @@ function UpdateDialog(props) {
       <div class="modal-backdrop" onClick={() => !busy(s().status) && props.onClose()}>
         <div class="modal update-dialog" onClick={(e) => e.stopPropagation()}>
           <div class="modal-head">
-            <h3>{t('Update {v} verfügbar', { v: latest().version })}</h3>
+            <h3 class="update-title">
+              <Logo size={40} /> {t('Update {v} verfügbar', { v: latest().version })}
+            </h3>
             <button class="icon-btn" onClick={props.onClose} disabled={busy(s().status)} aria-label={t('Schließen')}>
               <X size={18} />
             </button>

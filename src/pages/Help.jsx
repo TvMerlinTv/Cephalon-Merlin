@@ -2,15 +2,16 @@ import { createResource, For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import {
   Hammer, ChevronsUp, Package, Flame, Dices, Store, ChartColumn, FolderOpen, ExternalLink, ChevronRight,
-  Keyboard, MonitorPlay, RefreshCw, Gamepad2, ScrollText, Wrench, Timer,
-} from 'lucide-solid';
+  Keyboard, MonitorPlay, RefreshCw, Gamepad2, ScrollText, Wrench, Timer, House } from 'lucide-solid';
 import { Logo } from '../components/Icons.jsx';
 import { UpdateCheck } from '../components/UpdateNotice.jsx';
 import { call, isTauri, openExternal } from '../lib/ipc.js';
 import { settings, keyLabel } from '../lib/settings.js';
 import { t } from '../lib/i18n.js';
+import Diagnostics from '../components/Diagnostics.jsx';
 
 const PAGES = [
+  { id: 'home', icon: House, label: 'Heute', text: 'Was gerade zählt: Zyklen, Sortie, laufende Bauaufträge, fast fertige Prime-Sets und der Wert deiner übrigen Teile.' },
   { id: 'inventory', icon: Package, label: 'Inventar', text: 'Deine handelbaren Items mit Marktpreisen (WTS/WTB).' },
   { id: 'world', icon: Timer, label: 'Weltstatus', text: 'Zyklen, Spalten, Sortie, Archon-Jagd, Nightwave und Baro Ki’Teer – live.' },
   { id: 'relics', icon: Flame, label: 'Relikt-Planer', text: 'Deine Relikte, ihr erwarteter Platin- und Ducat-Wert und was sich zu öffnen lohnt.' },
@@ -95,6 +96,34 @@ export default function Help(props) {
       <UpdateCheck />
 
       <div class="help-cols">
+        <section class="help-card">
+          <h3>{t('Tastenkürzel')}</h3>
+          <dl class="help-keys">
+            <dt>
+              <kbd>{t('Strg')}+K</kbd>
+            </dt>
+            <dd>{t('Suche: Seiten, Items und Aktionen')}</dd>
+            <dt>
+              <kbd>{t('Strg')}+1 … 9</kbd>
+            </dt>
+            <dd>{t('Seite wechseln (Reihenfolge der Seitenleiste)')}</dd>
+            <dt>
+              <kbd>F5</kbd>
+            </dt>
+            <dd>{t('Mit Spiel synchronisieren')}</dd>
+            <dt>
+              <kbd>{t('Strg')}+,</kbd>
+            </dt>
+            <dd>{t('Einstellungen')}</dd>
+            <dt>
+              <kbd>Esc</kbd>
+            </dt>
+            <dd>{t('Fenster schließen')}</dd>
+          </dl>
+        </section>
+        <Show when={isTauri}>
+          <Diagnostics />
+        </Show>
         <section class="help-card">
           <h3>{t('Erste Schritte')}</h3>
           <ol class="help-steps">

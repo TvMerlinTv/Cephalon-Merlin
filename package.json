@@ -1,7 +1,7 @@
 {
   "name": "cephalon-merlin-rs",
   "productName": "Cephalon Merlin",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "type": "module",
   "description": "Warframe companion â€“ Rust + Tauri 2 + SolidJS",
@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/cinzel": "^5.3.0",
     "@tauri-apps/api": "2.12.4",
     "lucide-solid": "^0.460.0",
     "solid-js": "1.9.18"

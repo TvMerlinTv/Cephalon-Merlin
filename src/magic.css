@@ -1,0 +1,238 @@
+@import '@fontsource/cinzel/latin-600.css';
+/* Arkan-Look (Theme "Arkan (Merlin)"): Gold als zweiter Akzent, Zauberbuch-Schrift für Titel,
+   Glühen statt harter Rahmen, Sternenstaub hinter Titelleiste und Seitenleiste.
+   Gilt nur mit <html data-magic> (lib/theme.js) – alle anderen Themes bleiben unverändert.
+   Tabellen, Preise und Timer behalten die normale Schrift. Keine Dauer-Animationen. */
+:root[data-magic] {
+  --gold: #e2c26b;
+  --glow: color-mix(in srgb, var(--accent) 55%, transparent);
+  --glow-soft: color-mix(in srgb, var(--accent) 28%, transparent);
+  --gold-glow: color-mix(in srgb, var(--gold) 45%, transparent);
+  --magic-font: 'Cinzel', 'Palatino Linotype', Georgia, serif;
+}
+
+/* ---------- Hintergrund: Sternenstaub ---------- */
+/* Hintergrund bleibt die reine Theme-Farbe (Schwarz wie beim OLED-Theme), nur Sternenstaub darüber */
+:root[data-magic] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.75;
+  background-image:
+    radial-gradient(1.2px 1.2px at 22px 34px, #fff, transparent),
+    radial-gradient(1px 1px at 118px 86px, #d9ccff, transparent),
+    radial-gradient(1.4px 1.4px at 170px 22px, var(--gold), transparent),
+    radial-gradient(1px 1px at 64px 142px, #fff, transparent),
+    radial-gradient(1px 1px at 210px 168px, #bfb2ff, transparent),
+    radial-gradient(0.8px 0.8px at 142px 196px, #fff, transparent),
+    radial-gradient(1px 1px at 36px 228px, #d9ccff, transparent);
+  background-size: 240px 260px;
+}
+
+/* ---------- Titel in Zauberbuch-Schrift ---------- */
+:root[data-magic] :is(h1, h2, h3),
+:root[data-magic] .titlebar-brand {
+  font-family: var(--magic-font);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+:root[data-magic] .titlebar-brand {
+  color: var(--gold);
+  text-shadow: 0 0 14px var(--gold-glow);
+}
+/* Abzeichen in der Titelleiste bleiben gut lesbar */
+:root[data-magic] .titlebar-brand .badge {
+  font-family: Roboto, 'Segoe UI', system-ui, sans-serif;
+  letter-spacing: 0;
+  text-shadow: none;
+  color: var(--text);
+}
+:root[data-magic] .modal-head h3,
+:root[data-magic] .empty h2 {
+  color: var(--gold);
+}
+
+/* ---------- Flächen: feiner Rand + Schimmer ---------- */
+:root[data-magic] :is(.content, .timerpanel, .profile) {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 0 26px -12px var(--glow);
+}
+:root[data-magic] .modal {
+  border-color: color-mix(in srgb, var(--gold) 40%, var(--line));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 0 46px -8px var(--glow),
+    0 24px 60px #000a;
+}
+
+/* ---------- Navigation und Reiter: Gold für „aktiv" ---------- */
+:root[data-magic] :is(.nav button, .nav-settings) {
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+:root[data-magic] :is(.nav button, .nav-settings).active {
+  color: var(--gold);
+  border-right-color: var(--gold);
+  background: linear-gradient(90deg, transparent, var(--glow-soft));
+  text-shadow: 0 0 12px var(--gold-glow);
+}
+:root[data-magic] :is(.nav button, .nav-settings).active svg {
+  filter: drop-shadow(0 0 5px var(--gold-glow));
+}
+:root[data-magic] .tabs button.active,
+:root[data-magic] .page-tabs > button.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+  box-shadow: 0 8px 12px -10px var(--gold);
+}
+
+/* ---------- Knöpfe und Karten: Glühen ---------- */
+:root[data-magic] :is(.btn, .item-card, .filter-pills button, .icon-btn) {
+  transition:
+    box-shadow 0.15s,
+    background 0.15s;
+}
+:root[data-magic] .btn:not(:disabled):hover {
+  box-shadow: 0 0 0 1px var(--glow-soft), 0 0 14px -2px var(--glow-soft);
+}
+:root[data-magic] .btn-primary {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #b04cff));
+  box-shadow: 0 0 16px -4px var(--glow);
+}
+:root[data-magic] .btn-primary:not(:disabled):hover {
+  background: linear-gradient(135deg, var(--accent-2), color-mix(in srgb, var(--accent-2) 60%, #c06bff));
+  box-shadow: 0 0 0 1px var(--glow), 0 0 22px -2px var(--glow);
+}
+:root[data-magic] .item-card:hover {
+  box-shadow: 0 0 0 1px var(--glow-soft), 0 0 22px -6px var(--glow);
+}
+:root[data-magic] .filter-pills button.active,
+:root[data-magic] .seg button.active {
+  box-shadow: inset 0 0 0 1px var(--glow-soft), 0 0 12px -4px var(--glow);
+}
+:root[data-magic] .badge-idle {
+  box-shadow: 0 0 12px -2px var(--glow);
+}
+
+/* Wertvolles in Gold: Dukaten und Platin-Symbol */
+:root[data-magic] .ducats {
+  color: var(--gold);
+}
+:root[data-magic] .icon-plat {
+  filter: drop-shadow(0 0 4px var(--gold-glow));
+}
+
+/* ---------- Tastatur-Fokus: goldener Ring ---------- */
+:root[data-magic] :where(button, a, select, summary, [tabindex], input[type='checkbox'], input[type='range']):focus-visible,
+:root[data-magic] :where(input:not([type='checkbox']):not([type='range']), textarea):focus-visible {
+  outline-color: var(--gold);
+  box-shadow: 0 0 10px var(--gold-glow);
+}
+
+/* Scrollbalken im Akzentton */
+:root[data-magic] ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--accent) 60%, var(--line));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-magic] * {
+    transition: none !important;
+  }
+}
+
+/* ---------- Runen-Trennlinien: Abschnitts-Überschriften mit Raute und auslaufender Goldlinie ----------
+   Nur in den Einstellungen und im Update-Fenster: andere Fenster haben eigene Überschriften-Stile. */
+:root[data-magic] :is(.modal.settings, .update-dialog) h4,
+:root[data-magic] .help-card > h3,
+:root[data-magic] .ft-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:root[data-magic] :is(.modal.settings, .update-dialog) h4 {
+  margin-top: 18px;
+}
+:root[data-magic] :is(.modal.settings, .update-dialog) h4::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  transform: rotate(45deg);
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold-glow);
+}
+:root[data-magic] :is(.modal.settings, .update-dialog) h4::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 60%, transparent), transparent);
+}
+:root[data-magic] :is(.tabs, .page-tabs) {
+  border-bottom-color: transparent;
+  border-image: linear-gradient(90deg, transparent, color-mix(in srgb, var(--gold) 45%, transparent), transparent) 1;
+}
+
+/* ---------- Sync als Zauber: drehender Runenkreis, danach kurzes goldenes Aufleuchten ---------- */
+:root[data-magic] .badge-busy {
+  background: color-mix(in srgb, var(--accent) 30%, #000);
+  box-shadow: 0 0 14px -2px var(--glow);
+}
+:root[data-magic] .badge-busy > svg.spin {
+  display: none;
+}
+:root[data-magic] .badge-busy::before {
+  content: '';
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px dashed var(--gold);
+  box-shadow:
+    0 0 8px var(--gold-glow),
+    inset 0 0 0 2px color-mix(in srgb, var(--accent-2) 80%, transparent);
+  animation: spin 1.6s linear infinite;
+}
+:root[data-magic] .badge-ok {
+  animation: sync-flash 1.1s ease-out 1;
+}
+@keyframes sync-flash {
+  0% {
+    box-shadow: 0 0 0 0 var(--gold-glow), 0 0 18px 2px var(--gold);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent, 0 0 0 0 transparent;
+  }
+}
+
+/* ---------- Seltenheit als Aura: seltene und legendäre Karten schimmern am Rand ---------- */
+:root[data-magic] .inv-card.rar-rare {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rar-rare) 45%, transparent), inset 0 0 22px -10px var(--rar-rare);
+}
+:root[data-magic] .inv-card.rar-legendary {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rar-legendary) 55%, transparent), inset 0 0 26px -8px var(--rar-legendary);
+}
+:root[data-magic] .inv-card.rar-rare:hover {
+  box-shadow: inset 0 0 0 1px var(--rar-rare), 0 0 22px -6px var(--rar-rare);
+}
+:root[data-magic] .inv-card.rar-legendary:hover {
+  box-shadow: inset 0 0 0 1px var(--rar-legendary), 0 0 24px -4px var(--rar-legendary);
+}
+
+/* Suche und Tasten im Arkan-Look */
+:root[data-magic] .palette-list button.active {
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+:root[data-magic] kbd {
+  border-color: color-mix(in srgb, var(--gold) 35%, var(--line));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-magic] .badge-busy::before,
+  :root[data-magic] .badge-ok {
+    animation: none;
+  }
+}

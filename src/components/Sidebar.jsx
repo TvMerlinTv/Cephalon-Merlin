@@ -1,14 +1,16 @@
 import { createSignal, For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import {
-  Hammer, ChevronsUp, Package, Flame, Dices, Store, ChartColumn, LifeBuoy, Settings, User, Wrench, HandCoins, Timer, Coins, Hexagon,
+  Hammer, ChevronsUp, Package, House, Flame, Dices, Store, ChartColumn, LifeBuoy, Settings, User, Wrench, HandCoins, Timer, Coins, Hexagon,
 } from 'lucide-solid';
 import { t, num } from '../lib/i18n.js';
 import { game } from '../lib/game.js';
+import { visibleNav } from '../lib/nav.js';
 import { Plat, Ducat } from './Icons.jsx';
 
 // Reihenfolge wie in der Electron-Version, dazu "Weltstatus" als eigene Seite
 export const NAV = [
+  { id: 'home', label: 'Heute', icon: House },
   { id: 'inventory', label: 'Inventar', icon: Package },
   { id: 'world', label: 'Weltstatus', icon: Timer },
   { id: 'relics', label: 'Relikt-Planer', icon: Flame },
@@ -77,7 +79,7 @@ export default function Sidebar(props) {
       </div>
 
       <ul class="nav">
-        <For each={NAV}>
+        <For each={visibleNav(NAV)}>
           {(item) => (
             <li>
               <button classList={{ active: props.page === item.id }} onClick={() => props.onNavigate(item.id)}>

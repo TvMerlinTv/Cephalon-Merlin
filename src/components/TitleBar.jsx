@@ -36,7 +36,7 @@ export default function TitleBar(props) {
   return (
     <header class="titlebar" data-tauri-drag-region>
       <div class="titlebar-brand" data-tauri-drag-region>
-        <Logo size={22} />
+        <Logo size={28} />
         <span data-tauri-drag-region>Cephalon Merlin</span>
         <span class="badge badge-rs" title={t('Rust-Version (Vorschau)')}>RS</span>
         {props.left}

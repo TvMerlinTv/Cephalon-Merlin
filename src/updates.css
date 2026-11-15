@@ -76,3 +76,12 @@
 .update-check .link-btn:hover {
   text-decoration: underline;
 }
+.update-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-sigil {
+  flex: none;
+  overflow: visible;
+}

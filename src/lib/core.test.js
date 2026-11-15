@@ -207,3 +207,191 @@ describe('Fehlertexte aus dem Rust-Teil', () => {
     expect(translateError('en', null)).toBe('');
   });
 });
+
+// ---------- Suche, Seitenleiste, Startseite, Preisverlauf ----------
+import { matchScore, searchList } from './search.js';
+import { orderNav } from './nav.js';
+import { nearlyComplete, tradeTip } from './today.js';
+import { priceTrend, sparkPath } from './priceHistory.js';
+
+describe('Suche', () => {
+  it('bewertet Namensanfang höher als Wortanfang und Mitte', () => {
+    expect(matchScore('Mirage Prime', 'mir')).toBeGreaterThan(matchScore('Ash Mirage', 'mir'));
+    expect(matchScore('Ash Mirage', 'mir')).toBeGreaterThan(matchScore('Admirage', 'mir'));
+    expect(matchScore('Mirage Prime', 'xyz')).toBe(0);
+    expect(matchScore('Mirage Prime', '')).toBe(0);
+  });
+  it('verlangt alle Suchwörter und ignoriert Akzente und Großschreibung', () => {
+    expect(matchScore('Mirage Prime Systems', 'prime sys')).toBeGreaterThan(0);
+    expect(matchScore('Mirage Prime Systems', 'prime neuro')).toBe(0);
+    expect(matchScore('Déjà Vu', 'deja')).toBeGreaterThan(0);
+  });
+  it('liefert die besten Treffer zuerst und begrenzt die Anzahl', () => {
+    const list = ['Ash Prime', 'Prime Flow', 'Braton Prime', 'Primed Reach'].map((name) => ({ name }));
+    const hits = searchList(list, 'prime', 3).map((h) => h.name);
+    expect(hits).toHaveLength(3);
+    expect(hits[0]).toBe('Prime Flow');
+  });
+});
+
+describe('Seitenleiste', () => {
+  const nav = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  it('behält ohne Einstellung die Reihenfolge', () => {
+    expect(orderNav(nav, []).map((n) => n.id)).toEqual(['a', 'b', 'c']);
+  });
+  it('sortiert nach gespeicherter Reihenfolge, neue Seiten bleiben an ihrem Platz', () => {
+    expect(orderNav(nav, ['c', 'a']).map((n) => n.id)).toEqual(['c', 'b', 'a']);
+    expect(orderNav(nav, ['c', 'b', 'a']).map((n) => n.id)).toEqual(['c', 'b', 'a']);
+    expect(orderNav([{ id: 'neu' }, ...nav], ['a', 'b', 'c'])[0].id).toBe('neu');
+  });
+});
+
+describe('Startseite', () => {
+  const part = (id, count = 1) => ({ kind: 'part', id, name: id, count, ducats: 45 });
+  const item = (id, parts) => ({ id, name: id, isPrime: true, maxXp: 900000, maxRank: 30, components: parts });
+  const db = { items: [item('A', [part('a1'), part('a2'), part('a3')]), item('B', [part('b1'), part('b2')]), item('C', [part('c1'), part('c2'), part('c3'), part('c4')])] };
+  const inv = { xp: {}, owned: {}, counts: { a1: 1, a2: 1, c1: 1 }, player: { credits: 0 } };
+  it('zeigt nur angefangene Sets, denen höchstens zwei Teile fehlen', () => {
+    const r = nearlyComplete(db, inv);
+    expect(r.map((x) => x.item.id)).toEqual(['A']);
+    expect(r[0].have).toBe(2);
+    expect(r[0].total).toBe(3);
+    expect(r[0].missing.map((m) => m.id)).toEqual(['a3']);
+  });
+  it('überspringt gemeisterte Items und gefilterte', () => {
+    expect(nearlyComplete(db, { ...inv, xp: { A: 900000 } })).toHaveLength(0);
+    expect(nearlyComplete(db, inv, { skip: (i) => i.id === 'A' })).toHaveLength(0);
+    expect(nearlyComplete(null, inv)).toEqual([]);
+  });
+  it('empfiehlt Baro ab 10 Ducats pro Platin', () => {
+    expect(tradeTip(100, 5)).toBe('baro');
+    expect(tradeTip(45, 20)).toBe('sell');
+    expect(tradeTip(45, null)).toBe(null);
+  });
+});
+
+describe('Preisverlauf', () => {
+  const days = (values) => values.map((median) => ({ median, volume: 10 }));
+  it('braucht mindestens vier Tage', () => {
+    expect(priceTrend(days([1, 2, 3]))).toBe(null);
+  });
+  it('erkennt steigende und fallende Preise', () => {
+    const up = priceTrend(days([10, 10, 10, 10, 10, 10, 10, 20, 20, 20, 20, 20, 20, 20]));
+    expect(up.dir).toBe('up');
+    expect(up.change).toBe(100);
+    expect(up.hint).toMatch(/Verkaufen/);
+    const down = priceTrend(days([20, 20, 20, 20, 20, 20, 20, 10, 10, 10, 10, 10, 10, 10]));
+    expect(down.dir).toBe('down');
+    expect(down.hint).toMatch(/Kaufen/);
+    expect(priceTrend(days([10, 10, 10, 10, 10])).dir).toBe('flat');
+  });
+  it('zeichnet einen Pfad über die ganze Breite', () => {
+    const p = sparkPath([1, 2, 3], 100, 40);
+    expect(p.startsWith('M0 ')).toBe(true);
+    expect(p).toContain('L100 ');
+    expect(sparkPath([5], 100, 40)).toBe('');
+  });
+});
+
+// ---------- Farm-Plan und Diagnose ----------
+import { farmPlan } from './today.js';
+import { diagnose, reportText } from './diagnose.js';
+
+describe('Farm-Plan', () => {
+  const sets = [{ item: { name: 'A Prime' }, missing: [{ id: '/x/APrimeChassisComponent', name: 'Chassis' }, { id: '/x/APrimeBarrel', name: 'Barrel' }] }];
+  const relics = [
+    { id: 'r1', name: 'Lith A1', tier: 'Lith', vaulted: false, rewards: { intact: [{ id: '/x/APrimeChassisBlueprint', chance: 11 }] } },
+    { id: 'r2', name: 'Axi B2', tier: 'Axi', vaulted: false, rewards: { intact: [{ id: '/x/APrimeChassisBlueprint', chance: 2 }] } },
+    { id: 'r3', name: 'Neo C3', tier: 'Neo', vaulted: false, rewards: { intact: [{ id: '/x/APrimeBarrel', chance: 25.33 }] } },
+    { id: 'r4', name: 'Meso D4', tier: 'Meso', vaulted: true, rewards: { intact: [{ id: '/x/APrimeBarrel', chance: 25.33 }] } },
+  ];
+  it('findet eigene Relikte auch über die Blaupausen-Variante und stellt aktive Ären nach vorn', () => {
+    const plan = farmPlan(sets, relics, { r1: { intact: 2 }, r2: { radiant: 1, intact: 1 } }, new Set(['Axi']));
+    const chassis = plan.find((p) => p.part.name === 'Chassis');
+    expect(chassis.active).toBe(true);
+    expect(chassis.relics.map((r) => r.name)).toEqual(['Axi B2', 'Lith A1']);
+    expect(chassis.relics[0].owned).toBe(2);
+    expect(plan[0].part.name).toBe('Chassis');
+  });
+  it('nennt ohne eigenes Relikt nur Quellen außerhalb des Vaults', () => {
+    const barrel = farmPlan(sets, relics, {}, new Set()).find((p) => p.part.name === 'Barrel');
+    expect(barrel.relics).toEqual([]);
+    expect(barrel.sources).toEqual(['Neo C3']);
+    expect(farmPlan(sets, null, {}, new Set())).toEqual([]);
+  });
+});
+
+describe('Diagnose', () => {
+  const now = Date.UTC(2026, 10, 15, 12);
+  const good = { version: '0.2.3', webview: '1', game: true, log: { size: 5, modified: now - 120000 }, writable: true, net: { online: true }, market: { ok: true, ms: 300 }, overlay: true, relicDb: true };
+  const state = (rows, id) => rows.find((r) => r.id === id).state;
+  it('meldet alles grün, wenn alles da ist', () => {
+    const rows = diagnose(good, { syncedAt: now - 3600000, syncError: null, worldAt: now - 60000, worldOffline: false, now });
+    expect(rows.every((r) => r.state === 'ok')).toBe(true);
+    expect(rows.find((r) => r.id === 'sync').vars.t).toBe('1 h');
+  });
+  it('erkennt fehlendes Spiel, Offline und Markt-Fehler', () => {
+    const rows = diagnose({ ...good, game: false, log: null, net: { online: false }, market: { ok: false, error: 'HTTP 503' }, writable: false }, { syncedAt: null, syncError: null, worldAt: null, worldOffline: true, now });
+    expect(state(rows, 'game')).toBe('warn');
+    expect(state(rows, 'log')).toBe('warn');
+    expect(state(rows, 'net')).toBe('bad');
+    expect(state(rows, 'market')).toBe('bad');
+    expect(state(rows, 'data')).toBe('bad');
+    expect(state(rows, 'sync')).toBe('warn');
+    const text = reportText({ ...good, overlay: false }, rows);
+    expect(text).toContain('[FEHLER] warframe.market: Nicht erreichbar: HTTP 503');
+    expect(text).toContain('Cephalon Merlin 0.2.3');
+  });
+});
+
+// ---------- Checkliste und Baros Angebot ----------
+import { periodKey, nextReset, isDone, toggled } from './checklist.js';
+import { baroOffer, prettyId } from './baro.js';
+
+describe('Checkliste', () => {
+  const mon = Date.UTC(2026, 10, 16); // Montag, 16.11.2026
+  const H = 3600000;
+  it('wechselt täglich um Mitternacht UTC und wöchentlich am Montag', () => {
+    expect(periodKey('daily', mon - 1)).toBe(periodKey('daily', mon) - 1);
+    expect(periodKey('weekly', mon - 1)).toBe(periodKey('weekly', mon) - 1);
+    expect(periodKey('weekly', mon + 6 * 24 * H + 23 * H)).toBe(periodKey('weekly', mon));
+    expect(nextReset('daily', mon + 5 * H)).toBe(mon + 24 * H);
+    expect(nextReset('weekly', mon + 5 * H)).toBe(mon + 7 * 24 * H);
+    expect(nextReset('weekly', mon - 1)).toBe(mon);
+  });
+  it('setzt Haken, die mit dem Zeitraum verfallen, und räumt alte auf', () => {
+    const a = { id: 'a', kind: 'daily' };
+    const w = { id: 'w', kind: 'weekly' };
+    let s = { tasks: [a, w], done: { weg: 1 } };
+    s = toggled(s, a, mon);
+    s = toggled(s, w, mon);
+    expect(s.done.weg).toBeUndefined();
+    expect(isDone(s, a, mon + 23 * H)).toBe(true);
+    expect(isDone(s, a, mon + 24 * H)).toBe(false);
+    expect(isDone(s, w, mon + 24 * H)).toBe(true);
+    expect(isDone(toggled(s, a, mon), a, mon)).toBe(false);
+  });
+});
+
+describe('Baros Angebot', () => {
+  it('macht aus internen Namen lesbare', () => {
+    expect(prettyId('/Lotus/Upgrades/Mods/PrimedContinuityMod')).toBe('Primed Continuity Mod');
+    expect(prettyId('/Lotus/Types/TNWGlyph')).toBe('TNW Glyph');
+  });
+  it('löst Namen auf, erkennt Besitz und Leistbarkeit und sortiert Fehlendes nach vorn', () => {
+    const items = [
+      { id: '/a/Owned', ducats: 500, credits: 100 },
+      { id: '/a/Known', ducats: 300, credits: 100 },
+      { id: '/a/UnknownThing', ducats: 400, credits: 999999 },
+    ];
+    const byRef = new Map([['/a/Known', { name: 'Primed Flow', thumb: 't.png' }], ['/a/Owned', { name: 'Primed Reach' }]]);
+    const inv = { counts: { '/a/Owned': 1 }, owned: {}, player: { ducats: 350, credits: 5000 } };
+    const o = baroOffer(items, byRef, new Map(), inv);
+    expect(o.map((x) => x.name)).toEqual(['Primed Flow', 'Unknown Thing', 'Primed Reach']);
+    expect(o[0].affordable).toBe(true);
+    expect(o[1].affordable).toBe(false);
+    expect(o[1].known).toBe(false);
+    expect(o[2].owned).toBe(1);
+    expect(baroOffer(undefined, byRef, null, null)).toEqual([]);
+  });
+});

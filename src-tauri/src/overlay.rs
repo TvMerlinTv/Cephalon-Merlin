@@ -340,6 +340,57 @@ pub async fn scan_file(app: &AppHandle, path: std::path::PathBuf) -> Result<Valu
     Ok(r)
 }
 
+/// Test ohne Spiel (Einstellungen → Overlays): zeigt das Overlay kurz mit einem Beispiel aus der
+/// Relikt-Datenbank – echte Namen, Preise und Besitz-Infos, aber kein Scan, kein Eintrag im Belohnungs-Log.
+/// `kind`: "rewards" (Belohnungs-Bildschirm) oder "selection" (Relikt-Auswahl).
+pub async fn test(app: &AppHandle, kind: &str) -> Result<(), String> {
+    const SHOW_TEST: Duration = Duration::from_secs(12);
+    let data = app.state::<AppState>().data.clone();
+    let relic_db = crate::db::relics(&data, false).await?;
+    let relics = relic_db["relics"].as_array().cloned().unwrap_or_default();
+    let rewards_of = |r: &Value| r["rewards"]["intact"].as_array().cloned().unwrap_or_default();
+    let relic = relics
+        .iter()
+        .find(|r| r["vaulted"] != true && rewards_of(r).len() == 6)
+        .or_else(|| relics.iter().find(|r| rewards_of(r).len() == 6))
+        .ok_or("Relikt-Datenbank ist leer – erst einmal online starten")?;
+    let names: Vec<Value> = rewards_of(relic).iter().map(|w| w["name"].clone()).collect();
+    let monitor = app.primary_monitor().ok().flatten().ok_or("Kein Bildschirm gefunden")?;
+    let (w, h, scale) = (monitor.size().width as f64, monitor.size().height as f64, monitor.scale_factor());
+    let mut r = if kind == "selection" {
+        // 6 Belohnungen links als 3×2-Raster, rechts ein paar Relikt-Kacheln derselben Ära
+        let spots: Vec<Value> = names
+            .iter()
+            .enumerate()
+            .map(|(i, n)| json!({ "name": n, "x": w * 0.06 + (i % 3) as f64 * h * 0.165, "y": h * (0.42 + (i / 3) as f64 * 0.19), "w": h * 0.13, "h": h * 0.03 }))
+            .collect();
+        let tiles: Vec<Value> = relics
+            .iter()
+            .filter(|t| t["tier"] == relic["tier"])
+            .take(5)
+            .enumerate()
+            .map(|(i, t)| json!({ "relicId": t["id"], "name": t["name"], "x": w * 0.5 + i as f64 * h * 0.15, "y": h * 0.3, "w": h * 0.12, "h": h * 0.2 }))
+            .collect();
+        json!({ "mode": "selection", "era": relic["tier"], "relicId": relic["id"], "relicName": relic["name"], "refinement": "intact", "spots": spots, "tiles": tiles })
+    } else {
+        // 4 Belohnungen nebeneinander, mittig wie im Spiel
+        let items: Vec<Value> = [5usize, 3, 0, 4]
+            .iter()
+            .enumerate()
+            .map(|(i, &n)| json!({ "name": names[n], "score": 1.0, "x": w / 2.0 + (i as f64 - 1.5) * h * 0.225 - h * 0.09, "y": h * 0.41, "w": h * 0.18, "h": h * 0.03 }))
+            .collect();
+        json!({ "mode": "rewards", "items": items })
+    };
+    r["screen"] = json!({ "width": w, "height": h, "scale": scale });
+    r["reason"] = json!("test");
+    r["at"] = json!(now());
+    with(|s| s.last = Some(r.clone()));
+    show_overlay(app);
+    let _ = app.emit("scan", &r);
+    schedule_hide(app, SHOW_TEST);
+    Ok(())
+}
+
 /// PNG/JPG/BMP per Windows-Bilddecoder laden.
 #[cfg(windows)]
 fn decode_image(path: &std::path::Path) -> Result<Image, String> {

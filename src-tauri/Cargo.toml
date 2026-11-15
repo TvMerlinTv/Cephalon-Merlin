@@ -1,6 +1,6 @@
 [package]
 name = "cephalon-merlin"
-version = "0.2.2"
+version = "0.2.3"
 description = "Cephalon Merlin â€“ Warframe companion"
 authors = ["TvMerlinTv"]
 license = "MIT"

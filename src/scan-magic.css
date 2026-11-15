@@ -1,0 +1,67 @@
+@import '@fontsource/cinzel/latin-600.css';
+/* Arkan-Look für die Scan-Schilder (Overlay im Spiel und Scan-Seite): „Zauberschriftrolle" mit
+   goldenen Eckverzierungen, die beste Belohnung im Lichtschein. Gilt nur mit <html data-magic>.
+   Alles bleibt INNERHALB der Schilder (keine äußeren Schatten dazu): der Rust-Teil schwärzt genau
+   diese Flächen, falls das Overlay in einer Aufnahme landet. Keine Animationen (kostet im Spiel nichts). */
+:root[data-magic] :is(.rw-panel, .sel-panel) {
+  --ov-gold: #e2c26b;
+  position: relative;
+  background: #05060af2;
+  border-color: #e2c26b70;
+  box-shadow:
+    0 10px 30px #000c,
+    inset 0 0 26px #7c4dff33;
+}
+/* Vier goldene Ecken: je zwei Striche und ein Punkt */
+:root[data-magic] :is(.rw-panel, .sel-panel)::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  z-index: 1;
+  --c: var(--ov-gold);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / 18px 2px,
+    linear-gradient(var(--c), var(--c)) top left / 2px 18px,
+    linear-gradient(var(--c), var(--c)) top right / 18px 2px,
+    linear-gradient(var(--c), var(--c)) top right / 2px 18px,
+    linear-gradient(var(--c), var(--c)) bottom left / 18px 2px,
+    linear-gradient(var(--c), var(--c)) bottom left / 2px 18px,
+    linear-gradient(var(--c), var(--c)) bottom right / 18px 2px,
+    linear-gradient(var(--c), var(--c)) bottom right / 2px 18px,
+    radial-gradient(circle, var(--c) 1.6px, transparent 2px) top 5px left 5px / 6px 6px,
+    radial-gradient(circle, var(--c) 1.6px, transparent 2px) top 5px right 5px / 6px 6px,
+    radial-gradient(circle, var(--c) 1.6px, transparent 2px) bottom 5px left 5px / 6px 6px,
+    radial-gradient(circle, var(--c) 1.6px, transparent 2px) bottom 5px right 5px / 6px 6px;
+  background-repeat: no-repeat;
+}
+
+/* Beste Belohnung: Lichtschein von oben, goldener Rand */
+:root[data-magic] .rw-col.best {
+  background:
+    radial-gradient(ellipse 95% 60% at 50% 0%, #f6e3a160, transparent 72%),
+    linear-gradient(180deg, #2c2060, #17103a);
+  box-shadow:
+    inset 0 0 0 2px var(--ov-gold),
+    inset 0 0 22px #e2c26b55;
+}
+:root[data-magic] .rw-col.best .rw-name {
+  color: #fff3cf;
+  text-shadow: 0 0 10px #e2c26b99;
+}
+:root[data-magic] .rw-best {
+  background: linear-gradient(135deg, #f6e3a1, #c9a24a);
+  color: #1a1206;
+  font-weight: 700;
+}
+:root[data-magic] .rw-footer {
+  border-top-color: #e2c26b40;
+}
+:root[data-magic] .rw-footer > span:first-child {
+  font-family: 'Cinzel', 'Palatino Linotype', Georgia, serif;
+  letter-spacing: 0.06em;
+  color: var(--ov-gold);
+}
+:root[data-magic] .rec-card {
+  box-shadow: inset 0 0 0 1px #e2c26b30;
+}

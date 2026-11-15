@@ -449,6 +449,42 @@ pub async fn riven_auctions(weapon: &str, positive: Vec<String>) -> Result<Value
     Ok(search_auctions(weapon, &stats.join(",")).await?["list"].clone())
 }
 
+// ---------- Preisverlauf (abgeschlossene Handel der letzten 90 Tage, pro Tag) ----------
+static HISTORY: StdMutex<Option<HashMap<String, (i64, Value)>>> = StdMutex::new(None);
+const HISTORY_TTL_MS: i64 = 6 * 60 * 60 * 1000;
+
+/// Antwort von /v1/items/{slug}/statistics -> [{ d, median, min, max, volume }] (älteste zuerst).
+/// Bei Mods/Arcanes gibt es je Rang eine Reihe; genommen wird Rang 0 (ungelevelt).
+fn history_points(r: &Value) -> Vec<Value> {
+    r["payload"]["statistics_closed"]["90days"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|p| p["mod_rank"].as_i64().unwrap_or(0) == 0)
+        .filter_map(|p| {
+            let median = p["median"].as_f64()?;
+            Some(json!({ "d": p["datetime"].as_str()?.get(..10)?, "median": median, "min": p["min_price"], "max": p["max_price"], "volume": p["volume"] }))
+        })
+        .collect()
+}
+
+/// Preisverlauf eines Items; 6 Stunden im Speicher gehalten (die Daten ändern sich nur einmal am Tag).
+pub async fn history(slug: &str) -> Result<Value, String> {
+    if slug.is_empty() || !slug.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        return Err("Ungültiger Item-Name".into());
+    }
+    let cached = |m: &mut Option<HashMap<String, (i64, Value)>>| {
+        m.get_or_insert_with(HashMap::new).get(slug).filter(|(ts, _)| now_ms() - ts < HISTORY_TTL_MS).map(|(_, v)| v.clone())
+    };
+    if let Some(v) = cached(&mut HISTORY.lock().unwrap_or_else(|e| e.into_inner())) {
+        return Ok(v);
+    }
+    let r = market_get(&format!("/v1/items/{slug}/statistics")).await?;
+    let v = json!(history_points(&r));
+    HISTORY.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).insert(slug.to_string(), (now_ms(), v.clone()));
+    Ok(v)
+}
+
 /// Top-Aufträge eines Items (nur Spieler, die gerade online sind); rank filtert Mods/Arcanes.
 pub async fn top_orders(slug: &str, rank: Option<u32>) -> Result<Value, String> {
     if slug.is_empty() || !slug.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
@@ -457,4 +493,24 @@ pub async fn top_orders(slug: &str, rank: Option<u32>) -> Result<Value, String> 
     let q = rank.map(|r| format!("?rank={r}")).unwrap_or_default();
     let r = market_get(&format!("/v2/orders/item/{slug}/top{q}")).await?;
     Ok(json!({ "sell": r["data"]["sell"].clone(), "buy": r["data"]["buy"].clone() }))
+}
+
+#[cfg(test)]
+mod history_tests {
+    use super::*;
+
+    #[test]
+    fn history_takes_rank_zero_days() {
+        let r = json!({ "payload": { "statistics_closed": { "90days": [
+            { "datetime": "2026-11-01T00:00:00.000+00:00", "median": 10.0, "min_price": 8, "max_price": 12, "volume": 30 },
+            { "datetime": "2026-11-02T00:00:00.000+00:00", "median": 55.0, "min_price": 50, "max_price": 60, "volume": 3, "mod_rank": 5 },
+            { "datetime": "2026-11-02T00:00:00.000+00:00", "median": 11.5, "min_price": 9, "max_price": 13, "volume": 20, "mod_rank": 0 },
+            { "datetime": "kaputt", "volume": 1 },
+        ] } } });
+        let p = history_points(&r);
+        assert_eq!(p.len(), 2);
+        assert_eq!(p[0]["d"], "2026-11-01");
+        assert_eq!(p[1]["median"], 11.5);
+        assert!(history_points(&json!({})).is_empty());
+    }
 }

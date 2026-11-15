@@ -4,7 +4,7 @@ use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-pub const THEMES: [&str; 7] = ["default", "ocean", "emerald", "ember", "orokin", "kuva", "midnight"];
+pub const THEMES: [&str; 8] = ["default", "arcane", "ocean", "emerald", "ember", "orokin", "kuva", "midnight"];
 pub const HOTKEYS: [&str; 11] = ["Home", "End", "Insert", "PageUp", "PageDown", "F9", "F10", "F11", "F12", "ScrollLock", "Pause"];
 
 pub fn defaults() -> Value {

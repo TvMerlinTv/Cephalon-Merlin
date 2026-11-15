@@ -6,6 +6,8 @@ import { settings, setSettings } from './settings.js';
 
 export const THEMES = [
   { id: 'default', label: 'Void (Standard)', colors: { bg: '#0f1219', bg2: '#151a25', panel: '#1a2030', card: '#222a3d', cardHover: '#29324a', line: '#2c3550', accent: '#6c4ce0' } },
+  // magic: zusätzlich der Arkan-Look aus magic.css (Schrift, Glühen, Sternenstaub)
+  { id: 'arcane', label: 'Arkan (Merlin)', magic: true, colors: { bg: '#000000', bg2: '#07080b', panel: '#0c0e13', card: '#13161d', cardHover: '#1a1e27', line: '#232837', accent: '#8b6dff' } },
   { id: 'ocean', label: 'Ozean', colors: { bg: '#0b1220', bg2: '#0f1a2b', panel: '#13203a', card: '#1a2a48', cardHover: '#213458', line: '#263b60', accent: '#2f7de1' } },
   { id: 'emerald', label: 'Smaragd', colors: { bg: '#0b1512', bg2: '#101c18', panel: '#14231e', card: '#1b2e27', cardHover: '#223a31', line: '#2a4238', accent: '#22a06b' } },
   { id: 'ember', label: 'Glut', colors: { bg: '#160f0e', bg2: '#1d1412', panel: '#241815', card: '#2e1f1b', cardHover: '#392722', line: '#45302a', accent: '#e0603a' } },
@@ -61,6 +63,7 @@ export function applyTheme(s) {
   const root = document.documentElement.style;
   for (const { key, css } of COLOR_KEYS) root.setProperty(css, colors[key]);
   root.setProperty('--radius', `${s.radius ?? 12}px`);
+  document.documentElement.toggleAttribute('data-magic', themeById(s.theme).magic === true);
   // UI-Größe per CSS-Zoom auf #root; Breite/Höhe ausgleichen, damit die App das Fenster füllt.
   // Die Titelleiste (mit dem Größen-Regler) bleibt gleich groß – sonst sperrt man sich bei 1 % aus.
   const z = s.uiScale ?? 1;

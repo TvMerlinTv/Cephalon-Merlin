@@ -1,3 +1,4 @@
+import '../scan-magic.css';
 import { For, Show } from 'solid-js';
 import { Lock, Star, ThumbsUp } from 'lucide-solid';
 import { expectedValue } from '../lib/gamedb.js';

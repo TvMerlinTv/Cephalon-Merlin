@@ -6,6 +6,7 @@ import { rewardCells } from '../lib/rewardCells.js';
 import { settings } from '../lib/settings.js';
 import { call, on } from '../lib/ipc.js';
 import { t } from '../lib/i18n.js';
+import { themeById } from '../lib/theme.js';
 import { RewardsPanel, SelectionPanel, RewardTag } from '../components/ScanViews.jsx';
 
 function rewardsLayout(result) {
@@ -44,6 +45,9 @@ export default function Overlay() {
       call('overlay_rects', { rects }).catch(() => {});
     });
   });
+
+  // Arkan-Look der Schilder (scan-magic.css) folgt dem gewählten Theme
+  createEffect(() => document.documentElement.toggleAttribute('data-magic', themeById(settings.theme).magic === true));
 
   const r = () => result();
   const ready = () => ri().ready;

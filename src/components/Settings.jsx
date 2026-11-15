@@ -2,12 +2,14 @@
 // Weitere Reiter (Overlays, Benachrichtigungen, Discord) kommen mit den jeweiligen Funktionen.
 import { createResource, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import { X, Check as CheckIcon, RotateCcw, FolderOpen, DatabaseBackup, BellRing, Gamepad2, RefreshCw, ExternalLink, Webhook, Trash2, Send } from 'lucide-solid';
+import { X, Check as CheckIcon, RotateCcw, FolderOpen, DatabaseBackup, BellRing, Gamepad2, RefreshCw, ExternalLink, Webhook, Trash2, Send, Eye, ArrowUp, ArrowDown, Download, Upload } from 'lucide-solid';
 import { settings, setSettings, HOTKEYS, keyLabel } from '../lib/settings.js';
 import { t , errText } from '../lib/i18n.js';
 import { call, isTauri, on, openExternal } from '../lib/ipc.js';
 import { THEMES, COLOR_KEYS, resolveColors, createDraft } from '../lib/theme.js';
 import { UpdateCheck } from './UpdateNotice.jsx';
+import { NAV } from './Sidebar.jsx';
+import { orderedNav, isHidden, toggleHidden, moveNav, resetNav, navCustomized } from '../lib/nav.js';
 
 function Check(props) {
   return (
@@ -76,6 +78,90 @@ function DataSection() {
   );
 }
 
+// Sicherung: eigene Daten in eine Datei schreiben bzw. daraus zurückholen (Rust: backup.rs)
+function BackupSection() {
+  const [msg, setMsg] = createSignal(null);
+  const [busy, setBusy] = createSignal(false);
+  const [confirm, setConfirm] = createSignal(false);
+  // Ansichts-Einstellungen der Oberfläche (Seitenleiste, gemerkte Reiter …) gehören mit in die Sicherung
+  const localPrefs = () => {
+    const out = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith('cm.')) out[k] = localStorage.getItem(k);
+      }
+    } catch {
+      /* ohne localStorage eben ohne */
+    }
+    return out;
+  };
+  const run = async (fn) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await fn();
+    } catch (e) {
+      setMsg({ ok: false, text: errText(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const exportNow = () =>
+    run(async () => {
+      const path = await call('backup_export', { local: localPrefs() });
+      if (path) setMsg({ ok: true, text: t('Sicherung gespeichert: {p}', { p: path }) });
+    });
+  const importNow = () =>
+    run(async () => {
+      setConfirm(false);
+      const r = await call('backup_import');
+      if (!r) return;
+      try {
+        for (const [k, v] of Object.entries(r.local ?? {})) localStorage.setItem(k, v);
+      } catch {
+        /* egal */
+      }
+      setMsg({ ok: true, text: t('Sicherung eingespielt – die Oberfläche lädt neu …') });
+      // To-Do-Liste, Alarme usw. werden beim Start gelesen: einmal neu laden
+      setTimeout(() => window.location.reload(), 900);
+    });
+  return (
+    <>
+      <h4>{t('Sicherung')}</h4>
+      <p class="muted small">
+        {t('Einstellungen, To-Do-Liste, Builds, Preis-Alarme und Statistik-Verlauf in einer Datei – zum Umziehen auf einen anderen PC. Inventar und Zugangsdaten sind nicht enthalten.')}
+      </p>
+      <div class="set-line">
+        <button class="btn" disabled={busy()} onClick={exportNow}>
+          <Download size={14} /> {t('Sicherung speichern')}
+        </button>
+        <Show
+          when={confirm()}
+          fallback={
+            <button class="btn" disabled={busy()} onClick={() => setConfirm(true)}>
+              <Upload size={14} /> {t('Sicherung einspielen')}
+            </button>
+          }
+        >
+          <span class="backup-confirm">
+            {t('Ersetzt deine jetzigen Einstellungen und Listen. Die bisherigen landen im Ordner „backup“.')}
+            <button class="btn btn-primary" disabled={busy()} onClick={importNow}>
+              {t('Datei wählen')}
+            </button>
+            <button class="btn" onClick={() => setConfirm(false)}>
+              {t('Abbrechen')}
+            </button>
+          </span>
+        </Show>
+      </div>
+      <Show when={msg()}>
+        <p class={`dc-msg ${msg().ok ? 'ok' : 'err'}`}>{msg().text}</p>
+      </Show>
+    </>
+  );
+}
+
 // Auto-Sync: läuft im Rust-Teil (autosync.rs), nur solange Warframe läuft und du eingeloggt bist
 const AUTO_SYNC_MINUTES = [0, 5, 10, 15, 30, 60, 120];
 function AutoSync() {
@@ -115,6 +201,39 @@ function AutoSync() {
   );
 }
 
+// Seitenleiste: Seiten ausblenden und umsortieren (Strg+1…9 folgt dieser Reihenfolge)
+function NavSection() {
+  return (
+    <>
+      <h4>{t('Seitenleiste')}</h4>
+      <p class="muted small">{t('Seiten ausblenden oder umsortieren. Ausgeblendete Seiten findest du weiter über die Suche (Strg+K).')}</p>
+      <ul class="nav-edit">
+        <For each={orderedNav(NAV)}>
+          {(n, i) => (
+            <li classList={{ off: isHidden(n.id) }}>
+              <label>
+                <input type="checkbox" checked={!isHidden(n.id)} onChange={() => toggleHidden(n.id)} />
+                <Dynamic component={n.icon} size={16} /> {t(n.label)}
+              </label>
+              <button class="icon-btn" onClick={() => moveNav(NAV, n.id, -1)} disabled={i() === 0} aria-label={t('Nach oben')} title={t('Nach oben')}>
+                <ArrowUp size={15} />
+              </button>
+              <button class="icon-btn" onClick={() => moveNav(NAV, n.id, 1)} disabled={i() === NAV.length - 1} aria-label={t('Nach unten')} title={t('Nach unten')}>
+                <ArrowDown size={15} />
+              </button>
+            </li>
+          )}
+        </For>
+      </ul>
+      <Show when={navCustomized()}>
+        <button class="btn" onClick={resetNav}>
+          <RotateCcw size={15} /> {t('Zurücksetzen')}
+        </button>
+      </Show>
+    </>
+  );
+}
+
 function General() {
   return (
     <>
@@ -133,7 +252,11 @@ function General() {
       />
       <Check k="secondMonitor" label="Cephalon Merlin beim Start auf den zweiten Monitor verschieben" />
       <AutoSync />
+      <NavSection />
       <DataSection />
+      <Show when={isTauri}>
+        <BackupSection />
+      </Show>
       <h4>{t('Updates')}</h4>
       <UpdateCheck />
     </>
@@ -323,6 +446,32 @@ function Notifications() {
   );
 }
 
+// Overlay ohne Spiel ansehen: zeigt es 12 Sekunden mit einem Beispiel aus der Relikt-Datenbank
+function OverlayTest() {
+  const [error, setError] = createSignal(null);
+  const show = (kind) => {
+    setError(null);
+    call('overlay_test', { kind }).catch((e) => setError(e.message ?? String(e)));
+  };
+  return (
+    <div class="set-line overlay-test">
+      <span>
+        {t('Overlay testen')}
+        <small class="muted">{t('Zeigt das Overlay 12 Sekunden mit Beispieldaten – ohne Spiel.')}</small>
+      </span>
+      <button class="btn" onClick={() => show('rewards')}>
+        <Eye size={15} /> {t('Belohnungen')}
+      </button>
+      <button class="btn" onClick={() => show('selection')}>
+        <Eye size={15} /> {t('Relikt-Auswahl')}
+      </button>
+      <Show when={error()}>
+        <span class="err">{errText(error())}</span>
+      </Show>
+    </div>
+  );
+}
+
 // Overlay und Texterkennung laufen im Rust-Teil (src-tauri/src/overlay.rs)
 function Overlays() {
   return (
@@ -335,6 +484,9 @@ function Overlays() {
         label="Belohnungs-Infos in die Zwischenablage kopieren"
         hint="Zum Einfügen in den Squad-Chat: Name, Platin und Ducats der 4 Belohnungen."
       />
+      <Show when={isTauri}>
+        <OverlayTest />
+      </Show>
       <div class="set-line">
         <span>{t('Größe des Belohnungs-Overlays')}</span>
         <input

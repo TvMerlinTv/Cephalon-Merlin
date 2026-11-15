@@ -1,0 +1,284 @@
+/* Startseite „Heute" */
+.home {
+  gap: 12px;
+}
+.hm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hm-head h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.hm-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+.hm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.hm-grid h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hm-more {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.hm-more:hover {
+  color: var(--text);
+}
+.hm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hm-rounds {
+  margin-top: 10px;
+}
+.hm-rounds li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg-2);
+}
+.hm-rounds li.done {
+  opacity: 0.6;
+}
+.hm-grow {
+  flex: 1;
+  min-width: 0;
+}
+.hm-time,
+.hm-progress {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hm-set {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: left;
+  background: var(--bg-2);
+}
+.hm-set:hover {
+  background: var(--card-hover);
+}
+.hm-set img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  flex: none;
+}
+.hm-set .hm-grow {
+  display: flex;
+  flex-direction: column;
+}
+.hm-set small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hm-progress {
+  font-weight: 600;
+  color: var(--ok);
+}
+.hm-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.hm-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-2);
+}
+.hm-stats b {
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.hm-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.hm-foundry .ft {
+  margin: 0;
+}
+
+/* Farm-Plan */
+.hm-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg-2);
+  border-left: 3px solid transparent;
+}
+.hm-plan.now {
+  border-left-color: var(--gold);
+}
+.hm-plan-name {
+  text-align: left;
+  font-weight: 600;
+}
+.hm-plan-name:hover {
+  color: var(--accent-2);
+}
+.hm-relics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.hm-relic {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--card);
+  white-space: nowrap;
+}
+.hm-relic small {
+  color: var(--muted);
+}
+.hm-relic.active {
+  background: color-mix(in srgb, var(--gold) 22%, transparent);
+  color: var(--gold);
+}
+.hm-legend {
+  margin: 8px 0 0;
+}
+
+/* Checkliste */
+.hm-check-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.hm-checks li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px 3px 8px;
+  border-radius: 8px;
+  background: var(--bg-2);
+}
+.hm-checks li.done .hm-grow {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.hm-del {
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+}
+.hm-checks li:hover .hm-del,
+.hm-del:focus-visible {
+  opacity: 1;
+}
+.hm-add {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.hm-add input,
+.hm-add select {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--text);
+  min-width: 0;
+}
+.hm-add input {
+  flex: 1;
+}
+
+/* Baros Angebot */
+.hm-offer li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--bg-2);
+}
+.hm-offer li.owned {
+  opacity: 0.55;
+}
+.hm-offer li.cant .hm-cost {
+  color: var(--err);
+}
+.hm-offer img,
+.hm-noimg {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  flex: none;
+}
+.hm-have {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  color: var(--ok);
+}
+.hm-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 52px;
+  justify-content: flex-end;
+}
+.hm-all {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.hm-all:hover {
+  color: var(--text);
+}
+.hm-buy {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}

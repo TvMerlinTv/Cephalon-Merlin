@@ -238,7 +238,7 @@ pub fn parse(ws: &Value, names: &Value, now: i64) -> Value {
     let mut cambion = cetus.clone();
     cambion["state"] = json!(if cetus["state"] == "day" { "fass" } else { "vome" });
     let baro = list("VoidTraders").first().map(|t| {
-        json!({ "activation": iso(ms(&t["Activation"])), "expiry": iso(ms(&t["Expiry"])), "location": node(&t["Node"]) })
+        json!({ "activation": iso(ms(&t["Activation"])), "expiry": iso(ms(&t["Expiry"])), "location": node(&t["Node"]), "items": baro_items(t) })
     });
 
     let bosses = &names["sortie"]["bosses"];
@@ -349,9 +349,36 @@ pub async fn fetch(data: &Path) -> Result<Value, String> {
     Ok(parsed)
 }
 
+/// Baros Angebot (nur gefüllt, solange er da ist): Spiel-ID, Ducats und Credits je Angebot.
+/// Der Laden nennt die Dinge "/Lotus/StoreItems/…" – ohne "StoreItems/" ist es die ID aus dem Inventar.
+fn baro_items(trader: &Value) -> Vec<Value> {
+    trader["Manifest"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|m| {
+            let id = m["ItemType"].as_str()?.replacen("/Lotus/StoreItems/", "/Lotus/", 1);
+            Some(json!({ "id": id, "ducats": m["PrimePrice"].as_i64().unwrap_or(0), "credits": m["RegularPrice"].as_i64().unwrap_or(0) }))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn baro_items_use_inventory_ids() {
+        let t = json!({ "Manifest": [
+            { "ItemType": "/Lotus/StoreItems/Upgrades/Mods/Pistol/Expert/WeaponRecoilReductionModExpert", "PrimePrice": 300, "RegularPrice": 220000 },
+            { "PrimePrice": 1 },
+        ] });
+        let items = baro_items(&t);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["id"], "/Lotus/Upgrades/Mods/Pistol/Expert/WeaponRecoilReductionModExpert");
+        assert_eq!(items[0]["ducats"], 300);
+        assert!(baro_items(&json!({})).is_empty());
+    }
 
     const MIN: i64 = 60_000;
     const H: i64 = 60 * MIN;

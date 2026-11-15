@@ -570,6 +570,7 @@ const EN = {
   "Zurücksetzen": "Reset",
   "Aussehen": "Appearance",
   "Void (Standard)": "Void (default)",
+  "Arkan (Merlin)": "Arcane (Merlin)",
   "Ozean": "Ocean",
   "Smaragd": "Emerald",
   "Glut": "Ember",
